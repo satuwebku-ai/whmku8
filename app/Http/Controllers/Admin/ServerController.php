@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\Server;
+use App\Models\ServerGroup;
 use App\Services\Hosting\HostingPanelFactory;
 use App\Services\Vps\VpsProviderFactory;
 use Illuminate\Http\RedirectResponse;
@@ -15,14 +17,17 @@ class ServerController extends Controller
 {
     public function index(): View
     {
-        $servers = Server::withCount('hostingAccounts')->latest()->paginate(10);
+        $servers = Server::with(['group'])->withCount(['hostingAccounts', 'serverPackages'])->latest()->paginate(10);
 
         return view('admin.servers.index', compact('servers'));
     }
 
     public function create(): View
     {
-        return view('admin.servers.form', ['server' => new Server()]);
+        return view('admin.servers.form', [
+            'server' => new Server(),
+            'serverGroups' => ServerGroup::orderBy('priority')->orderBy('name')->get(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -32,7 +37,6 @@ class ServerController extends Controller
         $data['api_username'] = $data['api_username'] ?? '';
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active', true);
-        $data['status'] = $data['status'] ?? 'active';
 
         Server::create($data);
 
@@ -41,7 +45,10 @@ class ServerController extends Controller
 
     public function edit(Server $server): View
     {
-        return view('admin.servers.form', compact('server'));
+        return view('admin.servers.form', [
+            'server' => $server,
+            'serverGroups' => ServerGroup::orderBy('priority')->orderBy('name')->get(),
+        ]);
     }
 
     public function update(Request $request, Server $server): RedirectResponse
@@ -51,7 +58,6 @@ class ServerController extends Controller
         $data['api_username'] = $data['api_username'] ?? '';
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active');
-        $data['status'] = $data['status'] ?? 'active';
 
         // Kalau field token dikosongkan saat edit, jangan timpa token yang sudah tersimpan.
         if (empty($data['api_token'])) {
@@ -65,8 +71,12 @@ class ServerController extends Controller
 
     public function destroy(Server $server): RedirectResponse
     {
-        if ($server->hostingAccounts()->exists()) {
-            return back()->with('error', 'Server tidak bisa dihapus karena masih punya hosting account terhubung.');
+        if (
+            $server->hostingAccounts()->exists()
+            || $server->serverPackages()->exists()
+            || Product::where('server_id', $server->id)->exists()
+        ) {
+            return back()->with('error', 'Server tidak bisa dihapus karena masih dipakai layanan, produk, atau inventaris paket.');
         }
 
         $server->delete();
@@ -404,13 +414,11 @@ class ServerController extends Controller
             'port'         => [$isVps ? 'nullable' : 'required', 'integer', 'min:1', 'max:65535'],
             'panel'        => ['required', Rule::in(['cpanel', 'directadmin', 'plesk', 'vps'])],
             'vps_provider' => [Rule::requiredIf($isVps), 'nullable', 'string', Rule::in(array_keys(config('vps_providers', [])))],
+            'server_group_id' => ['nullable', 'integer', 'exists:server_groups,id'],
             'api_username' => [$required('api_username') ? 'required' : 'nullable', 'string', 'max:100'],
             'api_token'    => [$updating ? 'nullable' : 'required', 'string'],
             'verify_ssl'   => ['nullable', 'boolean'],
             'max_accounts' => ['nullable', 'integer', 'min:1'],
-            'server_group_id' => ['nullable', 'integer', 'exists:server_groups,id'],
-            'ip_address'   => ['nullable', 'ip'],
-            'status'       => ['nullable', Rule::in(['active', 'maintenance'])],
             'price_per_vcpu_hour' => ['nullable', 'numeric', 'min:0'],
             'price_per_ram_gb_hour' => ['nullable', 'numeric', 'min:0'],
             'price_per_storage_gb_hour' => ['nullable', 'numeric', 'min:0'],

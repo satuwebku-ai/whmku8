@@ -12,7 +12,7 @@ class Server extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'hostname', 'ip_address', 'status', 'server_type_id', 'module_id', 'ns1', 'ns2', 'port', 'panel', 'vps_provider', 'api_username', 'api_token', 'server_group_id',
+        'name', 'hostname', 'ns1', 'ns2', 'port', 'panel', 'vps_provider', 'api_username', 'api_token', 'server_group_id',
         'verify_ssl', 'max_accounts', 'is_active', 'last_checked_at', 'last_check_status',
         'price_per_vcpu_hour', 'price_per_ram_gb_hour', 'price_per_storage_gb_hour',
         'price_per_backup_gb_hour', 'price_per_snapshot_gb_hour', 'price_windows_license_per_vcpu_hour',
@@ -36,76 +36,14 @@ class Server extends Model
         ];
     }
 
-    protected static function booted(): void
-    {
-        // Jaga server_type & module selalu selaras dengan jenis panel / provider VPS.
-        static::saving(function (self $server) {
-            if (! $server->isDirty(['panel', 'vps_provider']) && $server->module_id && $server->server_type_id) {
-                return;
-            }
-            $isCloud = $server->isCloud();
-            $key = $isCloud ? 'vps:' . ($server->vps_provider ?: 'generic') : (string) $server->panel;
-
-            $module = Module::firstOrCreate(
-                ['key' => $key],
-                ['name' => $isCloud ? 'VPS ' . ($server->vps_provider ?: '') : $key, 'type' => $isCloud ? 'vps' : 'panel', 'is_active' => true]
-            );
-            $type = ServerType::where('key', $isCloud ? 'vps' : 'shared')->first();
-
-            $server->module_id = $module->id;
-            $server->server_type_id = $type?->id;
-        });
-    }
-
-    public function serverType(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(ServerType::class);
-    }
-
-    public function module(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(Module::class);
-    }
-
-    public function packages(): HasMany
-    {
-        return $this->hasMany(ServerPackage::class);
-    }
-
-    public const STATUS_ACTIVE = 'active';
-    public const STATUS_MAINTENANCE = 'maintenance';
-    public const STATUS_FULL = 'full';
-
-    /** Akun yang masih memakai kapasitas (belum terminated). */
-    public function currentUsage(): int
-    {
-        return $this->hostingAccounts()->where('status', '!=', 'terminated')->count();
-    }
-
-    public function isFull(): bool
-    {
-        return $this->max_accounts !== null && $this->currentUsage() >= $this->max_accounts;
-    }
-
-    /** Status efektif: 'full' dihitung otomatis dari kapasitas. */
-    public function effectiveStatus(): string
-    {
-        if (! $this->is_active || $this->status === self::STATUS_MAINTENANCE) {
-            return self::STATUS_MAINTENANCE;
-        }
-
-        return $this->isFull() ? self::STATUS_FULL : self::STATUS_ACTIVE;
-    }
-
-    public function scopeAcceptingAccounts(Builder $query): Builder
-    {
-        return $query->where('is_active', true)->where(fn (Builder $q) => $q
-            ->whereNull('status')->orWhere('status', self::STATUS_ACTIVE));
-    }
-
     public function hostingAccounts(): HasMany
     {
         return $this->hasMany(HostingAccount::class);
+    }
+
+    public function serverPackages(): HasMany
+    {
+        return $this->hasMany(ServerPackage::class);
     }
 
     public function group(): \Illuminate\Database\Eloquent\Relations\BelongsTo

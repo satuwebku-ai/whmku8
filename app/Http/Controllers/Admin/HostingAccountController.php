@@ -6,7 +6,9 @@ use App\Services\Billing\DeletionGuard;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\HostingAccount;
+use App\Models\Product;
 use App\Models\Server;
+use App\Models\ServerPackage;
 use App\Notifications\OrderProvisioned;
 use App\Enums\OrderStatus;
 use App\Services\Hosting\HostingPanelFactory;
@@ -14,7 +16,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
@@ -116,7 +117,15 @@ class HostingAccountController extends Controller
 
     private function detailsData(HostingAccount $hostingAccount): array
     {
-        $hostingAccount->load(['client', 'serverModel', 'orders', 'activeAddons', 'options']);
+        $hostingAccount->load([
+            'client',
+            'serverModel',
+            'orders',
+            'activeAddons',
+            'options',
+            'provisionings' => fn ($query) => $query->with(['server', 'serverPackage'])->latest(),
+            'logs' => fn ($query) => $query->with('admin')->latest(),
+        ]);
 
         // Cuma dicoba untuk akun otomatis (terhubung server) — akun
         // manual tidak punya cara diperiksa lewat API sama sekali.
@@ -252,8 +261,22 @@ class HostingAccountController extends Controller
     public function update(Request $request, HostingAccount $hostingAccount): RedirectResponse
     {
         $data = $this->validated($request);
+        $previousStatus = $hostingAccount->status;
 
         $hostingAccount->update($data);
+        if ($previousStatus !== $hostingAccount->status) {
+            $action = match ($hostingAccount->status) {
+                'suspended' => 'suspend',
+                'terminated' => 'terminate',
+                'active' => $previousStatus === 'suspended' ? 'unsuspend' : 'manual_status_change',
+                default => 'manual_status_change',
+            };
+            $this->logLifecycle(
+                $hostingAccount,
+                $action,
+                "Status layanan diubah melalui formulir admin: {$previousStatus} → {$hostingAccount->status}."
+            );
+        }
 
         // Perubahan status lewat form Edit juga harus mengikuti aturan
         // terminate, bukan hanya tombol Terminate yang memanggil panel API.
@@ -282,17 +305,17 @@ class HostingAccountController extends Controller
 
     public function suspend(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'suspendAccount', 'suspended', 'Hosting account berhasil disuspend.', $this->lifecycleInput(request(), 'suspend'));
+        return $this->panelAction($hostingAccount, 'suspendAccount', 'suspended', 'Hosting account berhasil disuspend.');
     }
 
     public function unsuspend(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'unsuspendAccount', 'active', 'Hosting account berhasil diaktifkan kembali.', $this->lifecycleInput(request(), 'unsuspend'));
+        return $this->panelAction($hostingAccount, 'unsuspendAccount', 'active', 'Hosting account berhasil diaktifkan kembali.');
     }
 
     public function terminate(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'terminateAccount', 'terminated', 'Hosting account berhasil di-terminate dari server.', $this->lifecycleInput(request(), 'terminate'));
+        return $this->panelAction($hostingAccount, 'terminateAccount', 'terminated', 'Hosting account berhasil di-terminate dari server.');
     }
 
     /**
@@ -317,11 +340,8 @@ class HostingAccountController extends Controller
         // benar-benar dipanggil untuk mematikan akunnya.
         if (! $hostingAccount->serverModel || ! $hostingAccount->username) {
             $hostingAccount->update(['status' => 'terminated']);
+            $this->logLifecycle($hostingAccount, 'terminate', 'Pembatalan disetujui; akun manual dihentikan di sistem.');
             $hostingAccount->clearPendingRenewalInvoice();
-            $hostingAccount->lifecycleLogs()->create([
-                'admin_id' => auth('admin')->id(), 'event' => 'terminate', 'reason' => 'request',
-                'note' => $request->input('admin_note'), 'event_date' => now(), 'status' => 'success',
-            ]);
 
             return back()->with('success', 'Pembatalan disetujui. Karena akun ini manual, hentikan aksesnya secara manual juga di server bila perlu.');
         }
@@ -330,8 +350,7 @@ class HostingAccountController extends Controller
             $hostingAccount,
             'terminateAccount',
             'terminated',
-            'Pembatalan disetujui dan layanan berhasil dihentikan.',
-            ['reason' => 'request', 'note' => $request->input('admin_note')]
+            'Pembatalan disetujui dan layanan berhasil dihentikan.'
         );
     }
 
@@ -434,79 +453,65 @@ class HostingAccountController extends Controller
         return back()->with('success', 'Info akun (dengan password baru) berhasil dikirim ke email klien.');
     }
 
-    /** Alasan yang diizinkan per jenis aksi (diagram: reason di suspend/unsuspend/terminate log). */
-    private const LIFECYCLE_REASONS = [
-        'suspend'   => ['overdue', 'request', 'abuse', 'other'],
-        'unsuspend' => ['payment', 'request', 'other'],
-        'terminate' => ['expired', 'request', 'abuse', 'other'],
-    ];
-
-    /** @return array{reason: ?string, note: ?string} */
-    private function lifecycleInput(Request $request, string $event): array
+    private function panelAction(HostingAccount $hostingAccount, string $method, string $newStatus, string $successMessage): RedirectResponse
     {
-        $data = $request->validate([
-            'reason' => ['nullable', Rule::in(self::LIFECYCLE_REASONS[$event])],
-            'note'   => ['nullable', 'string', 'max:500'],
-        ]);
-
-        return ['reason' => $data['reason'] ?? 'other', 'note' => $data['note'] ?? null];
-    }
-
-    /**
-     * @param array{reason?: ?string, note?: ?string} $lifecycle
-     */
-    private function panelAction(HostingAccount $hostingAccount, string $method, string $newStatus, string $successMessage, array $lifecycle = []): RedirectResponse
-    {
-        $event = ['suspendAccount' => 'suspend', 'unsuspendAccount' => 'unsuspend', 'terminateAccount' => 'terminate'][$method] ?? null;
-        $record = function (string $status, ?string $extra = null) use ($hostingAccount, $event, $lifecycle) {
-            if ($event === null) {
-                return;
-            }
-            $note = trim(implode(' — ', array_filter([$lifecycle['note'] ?? null, $extra])));
-            $hostingAccount->lifecycleLogs()->create([
-                'admin_id'   => auth('admin')->id(),
-                'event'      => $event,
-                'reason'     => $lifecycle['reason'] ?? 'other',
-                'note'       => $note !== '' ? $note : null,
-                'event_date' => now(),
-                'status'     => $status,
-            ]);
-        };
-
         if (! $hostingAccount->serverModel || ! $hostingAccount->username) {
             return back()->with('error', 'Akun ini tidak terhubung ke server panel (dibuat manual), jadi tidak bisa dikontrol dari sini. Ubah status lewat form Edit.');
         }
 
-        $result = HostingPanelFactory::make($hostingAccount->serverModel)->{$method}($hostingAccount->username);
+        $action = match ($newStatus) {
+            'suspended' => 'suspend',
+            'active' => 'unsuspend',
+            default => 'terminate',
+        };
 
-        if ($result['success']) {
-            $hostingAccount->update([
-                'status' => $newStatus,
-                'provision_status' => 'provisioned',
-                'provision_message' => $result['message'],
-            ]);
+        try {
+            $result = HostingPanelFactory::make($hostingAccount->serverModel)->{$method}($hostingAccount->username);
 
-            if ($newStatus === 'terminated') {
-                $hostingAccount->clearPendingRenewalInvoice();
+            if ($result['success']) {
+                $hostingAccount->update([
+                    'status' => $newStatus,
+                    'provision_status' => 'provisioned',
+                    'provision_message' => $result['message'],
+                ]);
+                $this->logLifecycle($hostingAccount, $action, $result['message'] ?? $successMessage);
+
+                if ($newStatus === 'terminated') {
+                    $hostingAccount->clearPendingRenewalInvoice();
+                }
+
+                return back()->with('success', $successMessage);
             }
 
-            $record('success');
+            $hostingAccount->update(['provision_message' => $result['message']]);
+            $this->logLifecycle($hostingAccount, $action . '_failed', $result['message'] ?? 'Server menolak aksi.');
 
-            return back()->with('success', $successMessage);
+            return back()->with('error', 'Gagal menghubungi server: ' . ($result['message'] ?? 'respons tidak berhasil.'));
+        } catch (Throwable $e) {
+            $message = 'Aksi gagal (' . class_basename($e) . ').';
+            $hostingAccount->update(['provision_message' => $message]);
+            $this->logLifecycle($hostingAccount, $action . '_failed', $message);
+
+            return back()->with('error', $message . ' Periksa log aplikasi untuk detail.');
         }
+    }
 
-        $hostingAccount->update(['provision_message' => $result['message']]);
-        $record('failed', $result['message']);
-
-        return back()->with('error', 'Gagal menghubungi server: ' . $result['message']);
+    private function logLifecycle(HostingAccount $hostingAccount, string $action, string $message): void
+    {
+        $hostingAccount->logs()->create([
+            'admin_id' => auth('admin')->id(),
+            'action' => $action,
+            'message' => $message,
+        ]);
     }
 
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'client_id'      => ['required', 'exists:clients,id'],
             'product_id'     => ['nullable', 'exists:products,id'],
             'server_id'      => ['nullable', 'exists:servers,id'],
+            'server_package_id' => ['nullable', 'integer', 'exists:server_packages,id'],
             'domain'         => ['required', 'string', 'max:255'],
             'package'        => ['required', 'string', 'max:255'],
             'server'         => ['nullable', 'string', 'max:255'],
@@ -520,6 +525,25 @@ class HostingAccountController extends Controller
             'status'         => ['required', 'in:pending,active,suspended,terminated'],
             'next_due_date'  => ['nullable', 'date'],
         ]);
+
+        if (! empty($data['server_package_id'])) {
+            $package = ServerPackage::find($data['server_package_id']);
+            if (! $package || (int) $package->server_id !== (int) ($data['server_id'] ?? 0)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'server_package_id' => 'Paket harus berasal dari server yang dipilih.',
+                ]);
+            }
+
+            $data['package'] = $package->name;
+        } elseif (! empty($data['product_id'])) {
+            $product = Product::with('serverPackage')->find($data['product_id']);
+            if ($product?->server_package_id && (int) $product->server_id === (int) ($data['server_id'] ?? 0)) {
+                $data['server_package_id'] = $product->server_package_id;
+                $data['package'] = $product->serverPackage?->name ?: $data['package'];
+            }
+        }
+
+        return $data;
     }
 
     /**

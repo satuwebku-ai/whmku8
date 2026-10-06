@@ -12,101 +12,93 @@ use Illuminate\View\View;
 
 class ServerPackageController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Server $server): View
     {
-        $packages = ServerPackage::with('server')
-            ->when($request->integer('server_id'), fn ($q, $id) => $q->where('server_id', $id))
-            ->orderBy('server_id')->orderBy('name')->paginate(20)->withQueryString();
+        $this->ensureHostingServer($server);
+        $packages = $server->serverPackages()
+            ->withCount(['products', 'hostingAccounts'])
+            ->orderBy('name')
+            ->paginate(20);
 
-        return view('admin.server-packages.index', ['packages' => $packages, 'servers' => $this->hostingServers()]);
+        return view('admin.server-packages.index', compact('server', 'packages'));
     }
 
-    public function sync(Request $request, \App\Services\Hosting\ServerPackageSyncService $sync): RedirectResponse
+    public function create(Server $server): View
     {
-        $data = $request->validate(['server_id' => ['required', 'integer', 'exists:servers,id']]);
-        $server = Server::findOrFail($data['server_id']);
+        $this->ensureHostingServer($server);
 
-        if ($server->isCloud()) {
-            return back()->with('error', 'Server VM/VPS tidak memakai package panel.');
-        }
-
-        $result = $sync->sync($server);
-
-        if (! $result['success']) {
-            return back()->with('error', 'Sinkronisasi gagal: ' . $result['message']);
-        }
-
-        $message = "Sinkronisasi {$server->name} selesai: {$result['created']} package baru, {$result['updated']} diperbarui.";
-        if ($result['missing']) {
-            $message .= ' Ada di whmku tapi tidak ditemukan di server: ' . implode(', ', $result['missing']) . '.';
-        }
-
-        return back()->with('success', $message);
-    }
-
-    public function create(Request $request): View
-    {
         return view('admin.server-packages.form', [
-            'package' => new ServerPackage(['server_id' => $request->integer('server_id') ?: null, 'is_active' => true]),
-            'servers' => $this->hostingServers(),
+            'server' => $server,
+            'package' => new ServerPackage(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, Server $server): RedirectResponse
     {
-        ServerPackage::create($this->validated($request));
+        $this->ensureHostingServer($server);
+        $server->serverPackages()->create($this->validated($request, $server));
 
-        return redirect()->route('admin.server-packages.index')->with('success', 'Package berhasil ditambahkan.');
+        return redirect()->route('admin.servers.packages.index', $server)->with('success', 'Paket server berhasil ditambahkan.');
     }
 
-    public function edit(ServerPackage $server_package): View
+    public function edit(Server $server, ServerPackage $package): View
     {
-        return view('admin.server-packages.form', ['package' => $server_package, 'servers' => $this->hostingServers()]);
+        $this->ensureHostingServer($server);
+        $this->ensurePackageBelongsToServer($server, $package);
+
+        return view('admin.server-packages.form', compact('server', 'package'));
     }
 
-    public function update(Request $request, ServerPackage $server_package): RedirectResponse
+    public function update(Request $request, Server $server, ServerPackage $package): RedirectResponse
     {
-        $server_package->update($this->validated($request, $server_package));
+        $this->ensureHostingServer($server);
+        $this->ensurePackageBelongsToServer($server, $package);
+        $package->update($this->validated($request, $server, $package));
 
-        // Nama plan yang dipakai produk ikut selaras.
-        $server_package->products()->update(['panel_package' => $server_package->name]);
-
-        return redirect()->route('admin.server-packages.index')->with('success', 'Package berhasil diperbarui.');
+        return redirect()->route('admin.servers.packages.index', $server)->with('success', 'Paket server berhasil diperbarui.');
     }
 
-    public function destroy(ServerPackage $server_package): RedirectResponse
+    public function destroy(Server $server, ServerPackage $package): RedirectResponse
     {
-        if ($server_package->products()->exists()) {
-            return back()->with('error', 'Package tidak bisa dihapus karena masih dipakai produk.');
+        $this->ensureHostingServer($server);
+        $this->ensurePackageBelongsToServer($server, $package);
+
+        if ($package->products()->exists() || $package->hostingAccounts()->exists()) {
+            return back()->with('error', 'Paket masih ditautkan ke produk atau layanan. Nonaktifkan paket agar tidak dipilih untuk order baru.');
         }
 
-        $server_package->delete();
+        $package->delete();
 
-        return redirect()->route('admin.server-packages.index')->with('success', 'Package berhasil dihapus.');
+        return redirect()->route('admin.servers.packages.index', $server)->with('success', 'Paket server berhasil dihapus.');
     }
 
-    /** Package hanya relevan untuk server hosting panel (bukan VM/VPS). */
-    private function hostingServers()
+    private function validated(Request $request, Server $server, ?ServerPackage $package = null): array
     {
-        return Server::orderBy('name')->get()->reject(fn (Server $s) => $s->isCloud())->values();
-    }
+        $uniqueName = Rule::unique('server_packages', 'name')
+            ->where(fn ($query) => $query->where('server_id', $server->id));
 
-    private function validated(Request $request, ?ServerPackage $current = null): array
-    {
-        $serverId = $request->integer('server_id');
-        $data = $request->validate([
-            'server_id' => ['required', 'integer', 'exists:servers,id'],
-            'name' => [
-                'required', 'string', 'max:100',
-                Rule::unique('server_packages', 'name')->where('server_id', $serverId)->ignore($current?->id),
-            ],
-            'disk_limit_mb' => ['nullable', 'integer', 'min:0'],
-            'bandwidth_limit_mb' => ['nullable', 'integer', 'min:0'],
-            'cpu_limit' => ['nullable', 'integer', 'min:0', 'max:65535'],
-            'ram_limit_mb' => ['nullable', 'integer', 'min:0'],
+        if ($package) {
+            $uniqueName->ignore($package->id);
+        }
+
+        return $request->validate([
+            'name' => ['required', 'string', 'max:100', $uniqueName],
+            'disk_limit' => ['nullable', 'integer', 'min:1'],
+            'bandwidth_limit' => ['nullable', 'integer', 'min:1'],
+            'cpu_limit' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'ram_limit' => ['nullable', 'integer', 'min:1'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['required', 'in:active,inactive'],
         ]);
-        $data['is_active'] = $request->boolean('is_active');
+    }
 
-        return $data;
+    private function ensureHostingServer(Server $server): void
+    {
+        abort_if($server->isCloud(), 404, 'Inventaris paket ini hanya untuk server hosting.');
+    }
+
+    private function ensurePackageBelongsToServer(Server $server, ServerPackage $package): void
+    {
+        abort_unless((int) $package->server_id === (int) $server->id, 404);
     }
 }

@@ -9,9 +9,14 @@
       <h1 class="h4 fw-bold text-dark mb-1">Server</h1>
       <p class="small text-muted mb-0">Kelola server cPanel/WHM, DirectAdmin, Plesk, dan provider VM/VPS yang terhubung.</p>
     </div>
-    <a href="{{ route('admin.servers.create') }}" class="btn btn-primary">
-      <i class="fa-solid fa-plus" style="font-size:12px"></i> Tambah Server
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ route('admin.server-groups.index') }}" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-layer-group" style="font-size:12px"></i> Grup Server
+      </a>
+      <a href="{{ route('admin.servers.create') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus" style="font-size:12px"></i> Tambah Server
+      </a>
+    </div>
   </div>
 
   <div class="card border rounded-4 overflow-hidden">
@@ -20,6 +25,7 @@
         <thead>
           <tr class="small text-uppercase text-muted" style="background:#f8fafc">
             <th class="px-4 py-3">Nama</th>
+            <th class="py-3">Grup</th>
             <th class="py-3">Hostname</th>
             <th class="py-3">Panel</th>
             <th class="text-center py-3">Akun</th>
@@ -32,6 +38,14 @@
           @forelse ($servers as $server)
             <tr>
               <td class="px-4 py-3 fw-medium text-dark">{{ $server->name }}</td>
+              <td class="py-3">
+                @if ($server->group)
+                  <span class="fw-medium">{{ $server->group->name }}</span>
+                  @if ($server->group->location)<br><span class="small text-muted">{{ $server->group->location }}</span>@endif
+                @else
+                  <span class="text-muted">—</span>
+                @endif
+              </td>
               <td class="text-muted py-3">
                 @if ($server->isCloud())
                   {{ $server->hostname ?: ($server->vpsDriver() === 'idcloudhost' ? 'Lokasi default' : 'API provider') }}
@@ -87,6 +101,11 @@
                       <i class="fa-solid fa-stethoscope" style="font-size:12px"></i>
                     </a>
                   @endif
+                  @unless ($server->isCloud())
+                    <a href="{{ route('admin.servers.packages.index', $server) }}" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center" style="width:32px;height:32px;padding:0" title="Kelola paket server">
+                      <i class="fa-solid fa-box" style="font-size:12px"></i>
+                    </a>
+                  @endunless
                   <a href="{{ route('admin.servers.edit', $server) }}" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center" style="width:32px;height:32px;padding:0" title="Edit">
                     <i class="fa-regular fa-pen-to-square" style="font-size:12px"></i>
                   </a>
@@ -100,7 +119,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="7" class="text-center text-muted py-5">Belum ada server terhubung.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-5">Belum ada server terhubung.</td></tr>
           @endforelse
         </tbody>
       </table>

@@ -87,14 +87,14 @@ class Product extends Model
         return $this->belongsTo(ProductGroup::class, 'product_category_id');
     }
 
-    public function serverPackage(): BelongsTo
-    {
-        return $this->belongsTo(ServerPackage::class);
-    }
-
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);
+    }
+
+    public function serverPackage(): BelongsTo
+    {
+        return $this->belongsTo(ServerPackage::class);
     }
 
     public function orders(): HasMany

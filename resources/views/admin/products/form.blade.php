@@ -168,20 +168,26 @@
               </select>
               <p class="text-muted mt-1 mb-0" style="font-size:11px">Hanya server yang cocok dengan jenis kategori yang ditampilkan.</p>
             </div>
-            <div class="col-sm-6" id="serverPackageField">
-              <label class="form-label small fw-medium text-dark">Server Package (opsional)</label>
-              <select name="server_package_id" class="form-select" style="{{ $selectStyle }}">
-                <option value="">— Ketik nama plan manual —</option>
-                @foreach (\App\Models\ServerPackage::with('server')->where('is_active', true)->orderBy('server_id')->orderBy('name')->get() as $pkg)
-                  <option value="{{ $pkg->id }}" @selected((string) old('server_package_id', $product->server_package_id) === (string) $pkg->id)>{{ $pkg->server?->name }} — {{ $pkg->name }}</option>
+            <div class="col-sm-6 d-none" id="serverPackageField">
+              <label class="form-label small fw-medium text-dark">Paket Server</label>
+              <select name="server_package_id" id="serverPackageSelect" class="form-select form-select-sm">
+                <option value="">— Tidak ditautkan ke inventaris paket —</option>
+                @foreach ($serverPackages as $package)
+                  <option value="{{ $package->id }}" data-server-id="{{ $package->server_id }}"
+                          @selected(old('server_package_id', $product->server_package_id) == $package->id)>
+                    {{ $package->name }}{{ $package->status !== 'active' ? ' (nonaktif)' : '' }}
+                    · disk {{ $package->disk_limit ?? '∞' }} GB
+                    · bandwidth {{ $package->bandwidth_limit ?? '∞' }} GB
+                  </option>
                 @endforeach
               </select>
-              <p class="text-muted mt-1 mb-0" style="font-size:11px">Bila dipilih (dan package milik server di atas), nama plan di bawah terisi otomatis.</p>
+              @error('server_package_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+              <p class="text-muted mt-1 mb-0" style="font-size:11px">Paket terpilih disalin ke nama plan provider saat akun dibuat. Kelola inventaris dari halaman Server.</p>
             </div>
             <div class="col-sm-6" id="cpanelPackageField">
-              <label class="form-label small fw-medium text-dark">Nama Package di WHM/cPanel</label>
+              <label class="form-label small fw-medium text-dark">Nama Package di WHM/cPanel <span class="text-muted fw-normal">(opsional)</span></label>
               <input type="text" name="panel_package" id="panelPackageInput" value="{{ old('panel_package', $product->panel_package) }}" class="form-control form-control-sm" placeholder="cloud_hosting_pro">
-              <p class="text-muted mt-1 mb-0" style="font-size:11px">Harus sama persis dengan nama plan yang sudah dibuat di WHM.</p>
+              <p class="text-muted mt-1 mb-0" style="font-size:11px">Isi manual jika belum memakai inventaris paket; nilainya harus sama persis dengan nama plan di panel.</p>
             </div>
           </div>
 
@@ -405,7 +411,8 @@
 
       const vpsFields = document.getElementById('vpsSpecFields');
       const cpanelField = document.getElementById('cpanelPackageField');
-      const serverPackageField = document.getElementById('serverPackageField');
+      const packageField = document.getElementById('serverPackageField');
+      const packageSelect = document.getElementById('serverPackageSelect');
       const billingModeSelect = document.getElementById('vmBillingMode');
       const pricingCard = document.getElementById('pricingCyclesCard');
       const hourlyCard = document.getElementById('hourlyPricingCard');
@@ -419,6 +426,9 @@
       // bolak-balik tanpa kehilangan pilihan.
       const allServerOptions = Array.from(serverSelect.options).map(o => ({
         value: o.value, text: o.text, kind: o.dataset.kind || '',
+      }));
+      const allPackageOptions = Array.from(packageSelect.options).map(o => ({
+        value: o.value, text: o.text, serverId: o.dataset.serverId || '',
       }));
 
       function currentType() {
@@ -456,7 +466,22 @@
 
         vpsFields.classList.toggle('d-none', ! isVps);
         cpanelField.classList.toggle('d-none', isVps);
-        if (serverPackageField) serverPackageField.classList.toggle('d-none', isVps);
+        const selectedServer = serverSelect.value;
+        const selectedPackage = packageSelect.value;
+        packageSelect.innerHTML = '';
+        allPackageOptions
+          .filter(o => o.value === '' || o.serverId === selectedServer)
+          .forEach(function (o) {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.text;
+            opt.dataset.serverId = o.serverId;
+            if (o.value === selectedPackage) opt.selected = true;
+            packageSelect.appendChild(opt);
+          });
+        const canUsePackageInventory = ! isVps && !! selectedServer;
+        packageField.classList.toggle('d-none', ! canUsePackageInventory);
+        packageSelect.disabled = ! canUsePackageInventory;
 
         // Field "Cara Menagih" cuma berlaku untuk produk VPS -- dinonaktifkan
         // (bukan cuma disembunyikan) untuk kategori hosting/domain supaya

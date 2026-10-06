@@ -39,7 +39,7 @@ class DuitkuAndRefundAuditTest extends TestCase
         ]);
     }
 
-    private function callback(Payment $payment, string $amount, string $resultCode): array
+    private function makeDuitkuCallback(Payment $payment, string $amount, string $resultCode): array
     {
         return [
             'merchantCode' => self::MERCHANT,
@@ -79,7 +79,7 @@ class DuitkuAndRefundAuditTest extends TestCase
     {
         $payment = $this->paymentFor($this->gateway(), 'paid');
 
-        $this->postJson('/payment/webhook/duitku', $this->callback($payment, '100000', '01'))
+        $this->postJson('/payment/webhook/duitku', $this->makeDuitkuCallback($payment, '100000', '01'))
             ->assertOk();
 
         $this->assertSame('paid', $payment->fresh()->status);
@@ -89,7 +89,7 @@ class DuitkuAndRefundAuditTest extends TestCase
     {
         $payment = $this->paymentFor($this->gateway(), 'initiated');
 
-        $this->postJson('/payment/webhook/duitku', $this->callback($payment, '100000', '01'))
+        $this->postJson('/payment/webhook/duitku', $this->makeDuitkuCallback($payment, '100000', '01'))
             ->assertOk();
 
         $this->assertSame('failed', $payment->fresh()->status);
@@ -100,7 +100,7 @@ class DuitkuAndRefundAuditTest extends TestCase
         // Total punya pecahan; Duitku menerima dan mengirim balik rupiah bulat.
         $payment = $this->paymentFor($this->gateway(), 'initiated', 100000.50);
 
-        $this->postJson('/payment/webhook/duitku', $this->callback($payment, '100001', '01'))
+        $this->postJson('/payment/webhook/duitku', $this->makeDuitkuCallback($payment, '100001', '01'))
             ->assertOk();
 
         $this->assertSame('failed', $payment->fresh()->status);
@@ -110,7 +110,7 @@ class DuitkuAndRefundAuditTest extends TestCase
     {
         $payment = $this->paymentFor($this->gateway(), 'initiated');
 
-        $this->postJson('/payment/webhook/duitku', $this->callback($payment, '90000', '00'))
+        $this->postJson('/payment/webhook/duitku', $this->makeDuitkuCallback($payment, '90000', '00'))
             ->assertStatus(400);
 
         $this->assertSame('initiated', $payment->fresh()->status);
@@ -121,7 +121,7 @@ class DuitkuAndRefundAuditTest extends TestCase
         $payment = $this->paymentFor($this->gateway(), 'expired');
         $before = ActivityLog::count();
 
-        $this->postJson('/payment/webhook/duitku', $this->callback($payment, '100000', '00'))
+        $this->postJson('/payment/webhook/duitku', $this->makeDuitkuCallback($payment, '100000', '00'))
             ->assertOk();
 
         $this->assertSame('expired', $payment->fresh()->status);

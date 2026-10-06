@@ -12,7 +12,7 @@ class HostingAccount extends Model
     use HasFactory;
 
     protected $fillable = [
-        'client_id', 'product_id', 'server_id', 'domain', 'package', 'server', 'panel',
+        'client_id', 'product_id', 'server_id', 'server_package_id', 'domain', 'package', 'server', 'panel',
         'username', 'price', 'billing_cycle', 'billing_mode', 'hourly_rate', 'last_billed_at', 'panel_suspend_error', 'status', 'next_due_date',
         'provision_status', 'provision_message', 'provisioning_started_at', 'provisioning_finished_at', 'provisioning_attempts', 'provisioning_key', 'client_details', 'internal_notes',
         'cancellation_status', 'cancellation_reason', 'cancellation_requested_at',
@@ -84,6 +84,16 @@ class HostingAccount extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Product::class);
+    }
+
+    public function serverPackage(): BelongsTo
+    {
+        return $this->belongsTo(ServerPackage::class);
+    }
+
+    public function provisionings(): HasMany
+    {
+        return $this->hasMany(Provisioning::class);
     }
 
     public function pendingUpgradeProduct(): BelongsTo
@@ -291,52 +301,6 @@ class HostingAccount extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
-    }
-
-    protected static function booted(): void
-    {
-        // Catat riwayat provisioning per percobaan setiap provision_status berubah.
-        static::updated(function (self $account) {
-            if (! $account->wasChanged('provision_status')) {
-                return;
-            }
-            $status = match ($account->provision_status) {
-                'provisioning' => 'running',
-                'provisioned'  => 'success',
-                'failed'       => 'failed',
-                default        => null,
-            };
-            if ($status === null) {
-                return;
-            }
-
-            if ($status === 'running') {
-                $account->provisioningJobs()->create([
-                    'order_id'   => $account->orders()->latest('id')->value('id'),
-                    'server_id'  => $account->server_id,
-                    'product_id' => $account->product_id,
-                    'status'     => 'running',
-                    'message'    => $account->provision_message,
-                    'started_at' => now(),
-                ]);
-                return;
-            }
-
-            $job = $account->provisioningJobs()->where('status', 'running')->latest('id')->first();
-            if ($job) {
-                $job->update(['status' => $status, 'message' => $account->provision_message, 'finished_at' => now()]);
-            }
-        });
-    }
-
-    public function provisioningJobs(): HasMany
-    {
-        return $this->hasMany(ProvisioningJob::class);
-    }
-
-    public function lifecycleLogs(): HasMany
-    {
-        return $this->hasMany(ServiceLifecycleLog::class);
     }
 
     public function logs(): HasMany

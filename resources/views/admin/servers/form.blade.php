@@ -74,12 +74,12 @@
     @if ($server->exists) @method('PUT') @endif
 
     <div class="row g-3 mb-3">
-      <div class="col-sm-6">
+      <div class="col-sm-4">
         <label class="form-label small fw-medium text-dark">Nama / Label Server</label>
         <input type="text" name="name" value="{{ old('name', $server->name) }}" placeholder="Server JKT-01" class="form-control form-control-sm" required>
         @error('name') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       </div>
-      <div class="col-sm-6">
+      <div class="col-sm-4">
         <label class="form-label small fw-medium text-dark">Jenis Panel</label>
         <select name="panel" id="panelSelect" class="form-select" style="{{ $selectStyle }}">
           <option value="cpanel" @selected($currentPanel === 'cpanel')>cPanel / WHM</option>
@@ -88,6 +88,19 @@
           <option value="vps" @selected($currentPanel === 'vps')>VM / VPS (Cloud)</option>
         </select>
         @error('panel') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label small fw-medium text-dark">Grup Server</label>
+        <select name="server_group_id" class="form-select" style="{{ $selectStyle }}">
+          <option value="">— Tanpa grup —</option>
+          @foreach ($serverGroups as $group)
+            <option value="{{ $group->id }}" @selected(old('server_group_id', $server->server_group_id) == $group->id)>
+              {{ $group->name }}{{ $group->location ? ' · ' . $group->location : '' }}{{ $group->status !== 'active' ? ' (nonaktif)' : '' }}
+            </option>
+          @endforeach
+        </select>
+        @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+        <a href="{{ route('admin.server-groups.index') }}" class="small">Kelola grup server</a>
       </div>
     </div>
 
@@ -143,32 +156,6 @@
         <label class="form-label small fw-medium text-dark" id="labelApiToken">API Token</label>
         <input type="password" name="api_token" id="fieldApiToken" class="form-control form-control-sm" autocomplete="new-password">
         @error('api_token') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
-    </div>
-
-    <div class="row g-3 mb-3">
-      <div class="col-sm-4">
-        <label class="form-label small fw-medium text-dark">Server Group (opsional)</label>
-        <select name="server_group_id" class="form-select" style="{{ $selectStyle }}">
-          <option value="">— Tanpa group —</option>
-          @foreach (\App\Models\ServerGroup::orderBy('priority')->orderBy('name')->get() as $g)
-            <option value="{{ $g->id }}" @selected((string) old('server_group_id', $server->server_group_id) === (string) $g->id)>{{ $g->name }}{{ $g->location ? ' (' . $g->location . ')' : '' }}</option>
-          @endforeach
-        </select>
-        @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
-      <div class="col-sm-4">
-        <label class="form-label small fw-medium text-dark">IP Address (opsional)</label>
-        <input type="text" name="ip_address" value="{{ old('ip_address', $server->ip_address) }}" class="form-control form-control-sm" autocomplete="off">
-        @error('ip_address') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
-      <div class="col-sm-4">
-        <label class="form-label small fw-medium text-dark">Status</label>
-        <select name="status" class="form-select" style="{{ $selectStyle }}">
-          <option value="active" @selected(old('status', $server->status ?: 'active') === 'active')>Active</option>
-          <option value="maintenance" @selected(old('status', $server->status) === 'maintenance')>Maintenance</option>
-        </select>
-        <p class="text-muted mb-0 mt-1" style="font-size:11px">"Full" otomatis saat kapasitas maks. tercapai.</p>
       </div>
     </div>
 

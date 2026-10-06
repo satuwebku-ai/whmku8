@@ -9,6 +9,7 @@ use App\Models\Domain;
 use App\Models\HostingAccount;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Provisioning;
 use App\Enums\OrderStatus;
 use App\Notifications\OrderProvisioned;
 use App\Services\Domain\DomainRegistrarFactory;
@@ -158,17 +159,16 @@ class ProvisioningService
                 return null;
             }
 
-            // Diagram: Product -> Server Group -> Server. Bila akun belum punya
-            // server, pilih otomatis dari server group produk.
-            if (! $account->server_id && $order->product) {
-                $picked = app(ServerSelector::class)->forProduct($order->product);
-                if ($picked) {
-                    $account->update(['server_id' => $picked->id, 'server' => $picked->name, 'panel' => $picked->panel]);
-                    $account->unsetRelation('serverModel');
-                }
-            }
-
             if (! $account->server_id) {
+                Provisioning::create([
+                    'order_id' => $order->id,
+                    'hosting_account_id' => $account->id,
+                    'server_package_id' => $account->server_package_id,
+                    'attempt_number' => 0,
+                    'status' => 'manual',
+                    'message' => 'Tidak ada server tujuan; provisioning otomatis tidak dijalankan.',
+                    'finished_at' => now(),
+                ]);
                 $account->update([
                     'provision_status' => 'manual',
                     'provision_message' => 'Tidak ada server tujuan; provisioning otomatis tidak dijalankan.',
@@ -178,6 +178,17 @@ class ProvisioningService
 
             $server = $account->serverModel;
             if (! $server) {
+                $account->increment('provisioning_attempts');
+                Provisioning::create([
+                    'order_id' => $order->id,
+                    'hosting_account_id' => $account->id,
+                    'server_package_id' => $account->server_package_id,
+                    'attempt_number' => $account->provisioning_attempts,
+                    'status' => 'failed',
+                    'message' => 'Server tujuan tidak ditemukan.',
+                    'started_at' => now(),
+                    'finished_at' => now(),
+                ]);
                 $account->update([
                     'provision_status' => 'failed',
                     'provision_message' => 'Server tujuan tidak ditemukan.',
@@ -194,6 +205,16 @@ class ProvisioningService
                 'provision_status' => 'provisioning',
                 'provision_message' => 'Provisioning sedang dijalankan.',
             ])->save();
+            $provisioning = Provisioning::create([
+                'order_id' => $order->id,
+                'hosting_account_id' => $account->id,
+                'server_id' => $server->id,
+                'server_package_id' => $account->server_package_id,
+                'attempt_number' => $account->provisioning_attempts,
+                'status' => 'running',
+                'message' => 'Provisioning sedang dijalankan.',
+                'started_at' => now(),
+            ]);
 
             // First reconcile the provider. This is especially important for
             // cPanel: an HTTP timeout can happen after WHM created the account
@@ -210,6 +231,11 @@ class ProvisioningService
                                 'provision_status' => 'provisioned',
                                 'provision_message' => 'Akun sudah ada di provider dan disinkronkan tanpa membuat akun baru.',
                                 'provisioning_finished_at' => now(),
+                            ]);
+                            $provisioning->update([
+                                'status' => 'succeeded',
+                                'message' => 'Akun sudah ada di provider dan disinkronkan tanpa membuat akun baru.',
+                                'finished_at' => now(),
                             ]);
                             return null;
                         }
@@ -234,9 +260,15 @@ class ProvisioningService
                     'email'    => $order->client->email ?? '',
                 ]);
             } catch (Throwable $e) {
+                $message = 'Provider error: ' . $e->getMessage();
                 $account->update([
                     'provision_status' => 'failed',
-                    'provision_message' => 'Provider error: ' . $e->getMessage(),
+                    'provision_message' => $message,
+                ]);
+                $provisioning->update([
+                    'status' => 'failed',
+                    'message' => Str::limit($message, 2000),
+                    'finished_at' => now(),
                 ]);
                 throw $e;
             }
@@ -264,6 +296,11 @@ class ProvisioningService
             }
 
             $account->update($updates);
+            $provisioning->update([
+                'status' => $success ? 'succeeded' : 'failed',
+                'message' => isset($result['message']) ? Str::limit((string) $result['message'], 2000) : null,
+                'finished_at' => now(),
+            ]);
 
             if (! $success) {
                 return null;
@@ -864,7 +901,8 @@ class ProvisioningService
 
         $hosting->update([
             'product_id' => $newProduct->id,
-            'package' => $newProduct->panel_package ?: $newProduct->name,
+            'server_package_id' => $newProduct->server_package_id,
+            'package' => $newProduct->serverPackage?->name ?: ($newProduct->panel_package ?: $newProduct->name),
             'price' => $newProduct->priceForCycle($hosting->billing_cycle),
             'pending_upgrade_product_id' => null,
             'pending_upgrade_invoice_id' => null,
