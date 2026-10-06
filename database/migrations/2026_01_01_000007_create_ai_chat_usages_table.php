@@ -20,11 +20,11 @@ return new class extends Migration
     {
         Schema::create('ai_chat_usages', function (Blueprint $table) {
             $table->id();
-            // constrained() ke 'chat_conversations' tidak bisa dipasang di
-            // sini -- tabelnya baru dibuat belakangan (2027_07_01). FK-nya
-            // dipasang di 2027_07_01_000000_create_chat_tables.php.
-            $table->foreignId('chat_conversation_id');
+            // Nullable untuk pemakaian AI yang tidak berasal dari chat.
+            // Foreign key dipasang setelah tabel chat dibuat.
+            $table->foreignId('chat_conversation_id')->nullable();
             $table->string('model', 100);
+            $table->string('kind', 20)->default('bot');
             $table->unsignedInteger('input_tokens');
             $table->unsignedInteger('output_tokens');
             $table->timestamps();

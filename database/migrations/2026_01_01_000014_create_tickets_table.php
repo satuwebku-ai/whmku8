@@ -30,6 +30,7 @@ return new class extends Migration
             $table->foreignId('invoice_id')->nullable()->constrained()->nullOnDelete();
 
             $table->timestamp('last_reply_at')->nullable();
+            $table->timestamp('idle_prompted_at')->nullable();
             $table->timestamp('closed_at')->nullable();
             $table->timestamps();
 

@@ -13,11 +13,11 @@ class TransportSecurityTest extends TestCase
         app()->instance('env', 'production');
         config(['app.url' => 'http://example.test']);
 
-        $request = Request::create('http://example.test/client/login', 'GET');
+        $request = Request::create('http://member.satucloudhosting.com/login', 'GET');
         $response = (new ForceHttps())->handle($request, fn () => response('ok'));
 
         $this->assertSame(308, $response->getStatusCode());
-        $this->assertSame('https://example.test/client/login', $response->headers->get('location'));
+        $this->assertSame('https://member.satucloudhosting.com/login', $response->headers->get('location'));
 
         app()->instance('env', 'testing');
     }
@@ -27,7 +27,7 @@ class TransportSecurityTest extends TestCase
         app()->instance('env', 'production');
         config(['app.url' => 'https://example.test']);
 
-        $request = Request::create('https://example.test/client/login', 'GET');
+        $request = Request::create('https://member.satucloudhosting.com/login', 'GET');
         $response = (new ForceHttps())->handle($request, fn () => response('ok'));
 
         $this->assertSame(200, $response->getStatusCode());
