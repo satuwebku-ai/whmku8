@@ -19,9 +19,10 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Client Area Routes
 |--------------------------------------------------------------------------
-| Diberi prefix "client" dan name prefix "client." lewat web.php.
-| Memakai guard "client" yang terpisah dari guard admin, sehingga satu
-| browser bisa login sebagai admin dan klien sekaligus tanpa bentrok.
+| Terikat ke host member yang dikonfigurasi di config/portals.php dan
+| diberi name prefix "client." lewat web.php. Memakai guard "client" yang
+| terpisah dari guard admin, sehingga satu browser bisa login sebagai
+| admin dan klien sekaligus tanpa bentrok.
 */
 
 Route::middleware('guest:client')->group(function () {

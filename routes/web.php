@@ -8,59 +8,36 @@ use App\Http\Controllers\Site\PremiumDomainController;
 use App\Http\Controllers\Site\PromoController;
 use App\Http\Controllers\Site\ChatController as SiteChatController;
 use App\Http\Controllers\Site\PageController as SitePageController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Site\LegacyPortalRedirectController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
     ->middleware('throttle:60,1')
     ->name('csp-report');
 
-$clientPortalHost = trim((string) config('lumora.client_portal_host', ''));
-$publicSiteHost = trim((string) config('lumora.public_site_host', ''));
+// Panel klien dan admin memakai host terpisah; nama route internal
+// (client.* / admin.*) tetap sama, tetapi tidak lagi memakai prefix URL.
+Route::domain(config('portals.admin_host'))
+    ->name('admin.')
+    ->group(base_path('routes/admin.php'));
 
-if ($publicSiteHost === '') {
-    $publicSiteHost = (string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?: '');
-}
+Route::domain(config('portals.client_host'))
+    ->name('client.')
+    ->group(base_path('routes/client.php'));
 
-if ($clientPortalHost !== '') {
-    if ($publicSiteHost === '') {
-        throw new \InvalidArgumentException(
-            'Set PUBLIC_SITE_HOST or APP_URL when CLIENT_PORTAL_HOST is enabled.'
-        );
-    }
+// Alamat portal lama tetap berfungsi sebagai pengalihan GET ke subdomain
+// yang benar. POST tidak diteruskan agar data formulir/login tidak dipindah
+// lintas host oleh pengalihan.
+Route::get('admin/{path?}', [LegacyPortalRedirectController::class, 'admin'])
+    ->where('path', '.*')
+    ->name('legacy.admin');
 
-    if (strcasecmp($clientPortalHost, $publicSiteHost) === 0) {
-        throw new \InvalidArgumentException(
-            'CLIENT_PORTAL_HOST must be different from the public site host.'
-        );
-    }
+Route::get('client/{path?}', [LegacyPortalRedirectController::class, 'client'])
+    ->where('path', '.*')
+    ->name('legacy.client');
 
-    // Portal klien berada di /client pada subdomain agar root subdomain dapat
-    // menampilkan storefront. Nama rute client.* tetap dipertahankan.
-    Route::domain($clientPortalHost)
-        ->prefix('client')
-        ->name('client.')
-        ->group(base_path('routes/client.php'));
-
-    // URL portal lama di situs utama dipindahkan ke path /client pada subdomain.
-    // Hanya GET/HEAD yang dialihkan; data POST lama tidak dikirim lintas host.
-    Route::domain($publicSiteHost)->get('client/{path?}', function (Request $request, ?string $path = null) use ($clientPortalHost) {
-        $scheme = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https'));
-        if (! in_array($scheme, ['http', 'https'], true)) {
-            $scheme = 'https';
-        }
-
-        $target = $scheme . '://' . $clientPortalHost . '/client/' . ltrim((string) $path, '/');
-        if ($query = $request->getQueryString()) {
-            $target .= '?' . $query;
-        }
-
-        return redirect()->away($target, 302);
-    })->where('path', '.*')->name('client.legacy-redirect');
-} else {
-    // Tanpa CLIENT_PORTAL_HOST, perilaku lama /client tetap dipakai.
-    Route::prefix('client')->name('client.')->group(base_path('routes/client.php'));
-}
+// Situs publik tetap memakai root domain utama.
+Route::get('/', [CatalogController::class, 'homeBootstrap'])->name('home');
 
 // Logo, favicon, gambar banner — dilayani lewat Laravel (bukan file
 // statis), supaya kebal terhadap perbedaan folder repository vs folder
@@ -75,20 +52,6 @@ Route::get('banner-image/{filename}', [\App\Http\Controllers\BrandingAssetContro
 Route::get('vendor/fontawesome/css/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'fontAwesomeCss'])->name('fontawesome.css');
 Route::get('vendor/fontawesome/webfonts/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'fontAwesomeWebfont'])->name('fontawesome.webfont');
 Route::get('vendor/tailwind/browser.js', [\App\Http\Controllers\BrandingAssetController::class, 'tailwindBrowser'])->name('tailwind.browser');
-
-// Portal dan situs publik berbagi widget chat, aset merek, dan tujuan balik
-// pembayaran. Rute ini mengikuti host halaman asal.
-Route::controller(SiteChatController::class)->prefix('chat')->name('chat.')->group(function () {
-    Route::get('fetch', 'fetch')->name('fetch');
-    Route::post('send', 'send')->name('send');
-    Route::get('attachment/{message}/file', 'attachmentFile')->name('attachment');
-});
-
-Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'finish'])
-    ->name('payment.finish');
-
-$registerPublicRoutes = static function (): void {
-Route::get('/', [CatalogController::class, 'homeBootstrap'])->name('home');
 
 /*
 |--------------------------------------------------------------------------
@@ -163,6 +126,19 @@ Route::controller(CartController::class)->prefix('keranjang')->name('cart.')->gr
 | Slug yang bisa bentrok dengan route sistem (mis. "admin", "hosting")
 | ditolak sejak dibuat — lihat CmsPage::RESERVED_SLUGS.
 */
+/*
+|--------------------------------------------------------------------------
+| Widget Chat
+|--------------------------------------------------------------------------
+| Diakses lewat AJAX dari widget di pojok kanan bawah, baik oleh pengunjung
+| yang belum login maupun klien yang sudah masuk.
+*/
+Route::controller(SiteChatController::class)->prefix('chat')->name('chat.')->group(function () {
+    Route::get('fetch', 'fetch')->name('fetch');
+    Route::post('send', 'send')->name('send');
+    Route::get('attachment/{message}/file', 'attachmentFile')->name('attachment');
+});
+
 // Webhook pesan WhatsApp MASUK dari gateway (Fonnte/Wablas) -- lihat
 // WhatsAppWebhookController. Alamat ini yang didaftarkan di dashboard
 // gateway sebagai URL webhook.
@@ -198,6 +174,9 @@ Route::post('payment/webhook/{driver}', [WebhookController::class, 'handle'])
     ->middleware('throttle:120,1')
     ->name('payment.webhook');
 
+Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'finish'])
+    ->name('payment.finish');
+
 /*
 |--------------------------------------------------------------------------
 | Halaman Publik (CMS) — URL bersih
@@ -208,8 +187,9 @@ Route::post('payment/webhook/{driver}', [WebhookController::class, 'handle'])
 | didaftarkan lebih awal, ia akan "merebut" alamat yang seharusnya milik
 | route lain seperti /hosting atau /keranjang.
 |
-| Route admin didaftarkan lebih dulu. Portal client memakai prefix /client
-| pada subdomain jika CLIENT_PORTAL_HOST diatur.
+| Route portal klien dan admin berada di host masing-masing dan sudah
+| didaftarkan di atas. Pengalihan URL lama /client/... dan /admin/... juga
+| berada di atas catch-all ini agar alamat lama tetap menuju portal benar.
 |
 | Sebagai lapis pengaman kedua, CmsPage::RESERVED_SLUGS mencegah slug baru
 | dibuat dengan nama yang bisa bentrok sejak awal — lihat app/Models/Page.php.
@@ -217,20 +197,3 @@ Route::post('payment/webhook/{driver}', [WebhookController::class, 'handle'])
 Route::get('{slug}', [SitePageController::class, 'showBootstrap'])
     ->name('page.show')
     ->where('slug', '[a-z0-9\-]+');
-};
-
-if ($clientPortalHost !== '') {
-    // Admin tetap hanya di host publik; halaman toko umum tersedia di host
-    // publik dan subdomain client dengan route names yang sama.
-    Route::domain($publicSiteHost)
-        ->prefix('admin')
-        ->name('admin.')
-        ->group(base_path('routes/admin.php'));
-
-    Route::middleware(\App\Http\Middleware\EnsureAllowedSiteHost::class)
-        ->group($registerPublicRoutes);
-} else {
-    // Tanpa portal subdomain, pertahankan perilaku multi-host sebelumnya.
-    Route::prefix('admin')->name('admin.')->group(base_path('routes/admin.php'));
-    $registerPublicRoutes();
-}

@@ -9,98 +9,35 @@ use App\Models\ProductGroup;
 use App\Models\Coupon;
 use App\Models\Tld;
 use App\Support\ProductPromos;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CatalogController extends Controller
 {
 
-    public function homeBootstrap(Request $request): View
+    public function homeBootstrap(): View
     {
-        $clientPortalHost = trim((string) config('lumora.client_portal_host', ''));
-        if ($clientPortalHost !== '' && strcasecmp(rtrim($request->getHost(), '.'), rtrim($clientPortalHost, '.')) === 0) {
-            return view('public.client-storefront', $this->clientStorefrontData());
-        }
-
         return view('public.home', $this->homeData());
-    }
-
-    private function clientStorefrontData(): array
-    {
-        return [
-            'categories' => $this->homeCategories(),
-            'storefrontNavLinks' => $this->clientStorefrontNavLinks(),
-        ];
-    }
-
-    /**
-     * Keep the client storefront navigation aligned with the site's active
-     * menu configuration, while always providing working Home/Store links.
-     *
-     * @return array<int, array{label: string, url: string}>
-     */
-    private function clientStorefrontNavLinks(): array
-    {
-        $links = [
-            ['label' => 'Home', 'url' => route('home')],
-            ['label' => 'Store', 'url' => route('catalog.index')],
-        ];
-        $seen = ['home' => true, 'beranda' => true, 'store' => true, 'toko' => true, 'hosting' => true];
-
-        $menus = \App\Models\NavMenu::active()
-            ->whereNull('parent_id')
-            ->with(['page', 'children.page', 'defaultChild.page'])
-            ->orderBy('sort_order')
-            ->get();
-
-        foreach ($menus as $menu) {
-            $label = trim((string) $menu->label);
-            $normalizedLabel = mb_strtolower($label);
-            $url = $menu->resolved_url;
-            $isCoreStoreRoute = $menu->type === 'route'
-                && in_array($menu->route_name, ['home', 'catalog.index', 'catalog.vps'], true);
-
-            if ($label === '' || ! $url || $url === '#' || $isCoreStoreRoute || isset($seen[$normalizedLabel])) {
-                continue;
-            }
-
-            $links[] = ['label' => $label, 'url' => $url];
-            $seen[$normalizedLabel] = true;
-        }
-
-        $pages = \App\Models\CmsPage::published()
-            ->whereIn('slug', ['faq', 'contact', 'contact-us', 'kontak'])
-            ->get();
-
-        foreach ($pages as $page) {
-            $label = in_array($page->slug, ['contact', 'contact-us', 'kontak'], true)
-                ? 'Contact'
-                : 'FAQ';
-            $normalizedLabel = mb_strtolower($label);
-
-            if (isset($seen[$normalizedLabel])) {
-                continue;
-            }
-
-            $links[] = ['label' => $label, 'url' => route('page.show', $page->slug)];
-            $seen[$normalizedLabel] = true;
-        }
-
-        if (! isset($seen['announcements']) && ! isset($seen['pengumuman'])) {
-            $links[] = ['label' => 'Announcements', 'url' => route('announcements.index')];
-        }
-
-        return $links;
     }
 
     private function homeData(): array
     {
         // Diatur lewat Admin -> Sistem -> Pengaturan -> Halaman Depan.
+        $categoriesLimit = (int) \App\Models\Setting::get('home_categories_limit', 6);
         $featuredLimit = max(1, (int) \App\Models\Setting::get('home_featured_limit', 3));
         $announcementsLimit = max(1, (int) \App\Models\Setting::get('home_announcements_limit', 3));
         $vpsLimit = max(1, (int) \App\Models\Setting::get('home_vps_limit', 3));
 
-        $categories = $this->homeCategories();
+        $categories = ProductGroup::active()
+            ->withCount(['products' => fn ($q) => $q->active()])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($cat) => $cat->products_count > 0);
+
+        // 0 berarti "tanpa batas".
+        if ($categoriesLimit > 0) {
+            $categories = $categories->take($categoriesLimit);
+        }
 
         // Produk VPS dipisah dari hosting biasa lewat Product::scopeVpsType()/
         // scopeHostingType() -- SATU sumber kebenaran (kategori type='vps',
@@ -220,20 +157,6 @@ class CatalogController extends Controller
             'categories', 'featured', 'vpsProducts', 'popularTlds', 'tldPromos', 'productPromos',
             'announcements', 'banners', 'homeSections', 'homeOrder'
         );
-    }
-
-    private function homeCategories()
-    {
-        $categoriesLimit = (int) \App\Models\Setting::get('home_categories_limit', 6);
-        $categories = ProductGroup::active()
-            ->withCount(['products' => fn ($q) => $q->active()])
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get()
-            ->filter(fn ($cat) => $cat->products_count > 0);
-
-        // 0 berarti "tanpa batas".
-        return $categoriesLimit > 0 ? $categories->take($categoriesLimit) : $categories;
     }
 
     /**

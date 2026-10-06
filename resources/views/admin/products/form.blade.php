@@ -157,7 +157,7 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <label class="form-label small fw-medium text-dark">Server Tujuan</label>
-              <select name="server_id" id="serverSelect" class="form-select" style="{{ $selectStyle }}" data-server-edit-base="{{ url('/admin/servers') }}/__ID__/edit">
+              <select name="server_id" id="serverSelect" class="form-select" style="{{ $selectStyle }}" data-server-edit-base="{{ route('admin.servers.edit', ['server' => '__ID__']) }}">
                 <option value="">— Manual, tanpa auto-provisioning —</option>
                 @foreach ($servers as $srv)
                   <option value="{{ $srv->id }}" data-kind="{{ $srv->isCloud() ? 'vps' : 'hosting' }}"
