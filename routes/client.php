@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Client Area Routes
 |--------------------------------------------------------------------------
-| Diberi prefix "client" dan name prefix "client." lewat web.php.
+| Diberi name prefix "client." lewat web.php dan dilayani dari
+| subdomain member tanpa prefix URL "/client".
 | Memakai guard "client" yang terpisah dari guard admin, sehingga satu
 | browser bisa login sebagai admin dan klien sekaligus tanpa bentrok.
 */

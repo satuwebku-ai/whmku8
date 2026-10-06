@@ -74,12 +74,12 @@
     @if ($server->exists) @method('PUT') @endif
 
     <div class="row g-3 mb-3">
-      <div class="col-sm-4">
+      <div class="col-sm-6">
         <label class="form-label small fw-medium text-dark">Nama / Label Server</label>
         <input type="text" name="name" value="{{ old('name', $server->name) }}" placeholder="Server JKT-01" class="form-control form-control-sm" required>
         @error('name') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       </div>
-      <div class="col-sm-4">
+      <div class="col-sm-6">
         <label class="form-label small fw-medium text-dark">Jenis Panel</label>
         <select name="panel" id="panelSelect" class="form-select" style="{{ $selectStyle }}">
           <option value="cpanel" @selected($currentPanel === 'cpanel')>cPanel / WHM</option>
@@ -88,19 +88,6 @@
           <option value="vps" @selected($currentPanel === 'vps')>VM / VPS (Cloud)</option>
         </select>
         @error('panel') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
-      <div class="col-sm-4">
-        <label class="form-label small fw-medium text-dark">Grup Server</label>
-        <select name="server_group_id" class="form-select" style="{{ $selectStyle }}">
-          <option value="">— Tanpa grup —</option>
-          @foreach ($serverGroups as $group)
-            <option value="{{ $group->id }}" @selected(old('server_group_id', $server->server_group_id) == $group->id)>
-              {{ $group->name }}{{ $group->location ? ' · ' . $group->location : '' }}{{ $group->status !== 'active' ? ' (nonaktif)' : '' }}
-            </option>
-          @endforeach
-        </select>
-        @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-        <a href="{{ route('admin.server-groups.index') }}" class="small">Kelola grup server</a>
       </div>
     </div>
 

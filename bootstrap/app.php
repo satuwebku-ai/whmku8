@@ -26,7 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Tamu diarahkan ke halaman login yang sesuai areanya, supaya
         // klien tidak terlempar ke form login admin dan sebaliknya.
         $middleware->redirectGuestsTo(function ($request) {
-            return $request->is('admin', 'admin/*')
+            return $request->getHost() === config('portal_domains.admin')
+                || $request->is('admin', 'admin/*')
                 ? route('admin.login')
                 : route('client.login');
         });

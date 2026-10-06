@@ -508,9 +508,7 @@ class CheckoutController extends Controller
         // akan gagal dengan error mentah dari WHM ("package not found")
         // yang membingungkan. Diperlakukan sama seperti "belum diatur sama
         // sekali", jatuh ke mode manual dengan pesan yang jelas.
-        $readyForAutoProvision = $product?->server_id
-            && filled($product?->panel_package)
-            && (! $product->server_package_id || $product->serverPackage?->status === 'active');
+        $readyForAutoProvision = $product?->server_id && filled($product?->panel_package);
 
         // Stok terbatas: dikunci & dikurangi DI SINI (di dalam transaksi
         // checkout), bukan cuma dicek waktu tambah ke keranjang seperti
@@ -534,9 +532,8 @@ class CheckoutController extends Controller
             'client_id'        => $client->id,
             'product_id'       => $product?->id,
             'server_id'        => $readyForAutoProvision ? $product->server_id : null,
-            'server_package_id' => $readyForAutoProvision ? $product->server_package_id : null,
             'domain'           => $domainName ?: ('layanan-' . Str::lower(Str::random(6))),
-            'package'          => $product?->serverPackage?->name ?: ($product?->panel_package ?: ($product?->name ?? $item['name'])),
+            'package'          => $product?->panel_package ?: ($product?->name ?? $item['name']),
             'panel'            => $product?->server?->panel ?? 'cpanel',
             'price'            => $basePrice,
             'billing_cycle'    => $item['billing_cycle'],

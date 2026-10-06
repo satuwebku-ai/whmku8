@@ -41,11 +41,6 @@ class Server extends Model
         return $this->hasMany(HostingAccount::class);
     }
 
-    public function serverPackages(): HasMany
-    {
-        return $this->hasMany(ServerPackage::class);
-    }
-
     public function group(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(ServerGroup::class, 'server_group_id');

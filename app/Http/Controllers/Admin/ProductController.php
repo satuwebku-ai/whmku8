@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\Server;
-use App\Models\ServerPackage;
 use App\Services\Billing\HourlyRateCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -95,7 +94,6 @@ class ProductController extends Controller
         $this->assertCategoryMatchesServer($data);
         $data['billing_mode'] = $this->normalizedBillingMode($data);
         $data = $this->withVmSpec($request, $data);
-        $data = $this->withServerPackage($data, $ignoreId);
         $this->assertHasPrice($data);
         $warnings = $this->pricingWarnings($data);
 
@@ -135,16 +133,11 @@ class ProductController extends Controller
     private function formView(Product $product): View
     {
         $servers = Server::where('is_active', true)->orderBy('name')->get();
-        $serverPackages = ServerPackage::query()
-            ->where(fn ($query) => $query->where('status', 'active')->orWhere('id', $product->server_package_id))
-            ->orderBy('name')
-            ->get();
 
         return view('admin.products.form', [
             'product' => $product,
             'categories' => ProductGroup::orderBy('name')->get(),
             'servers' => $servers,
-            'serverPackages' => $serverPackages,
             'vpsServerMeta' => $this->vpsServerMeta($servers),
         ]);
     }
@@ -256,7 +249,6 @@ class ProductController extends Controller
             'setup_fee'           => ['nullable', 'numeric', 'min:0'],
             'domain_option'       => ['required', 'in:required,optional,none'],
             'server_id'           => ['nullable', 'exists:servers,id'],
-            'server_package_id'   => ['nullable', 'integer', 'exists:server_packages,id'],
             'panel_package'       => ['nullable', 'string', 'max:500'],
             'billing_mode'        => ['nullable', 'in:invoice,deposit'],
             'pricing_mode'        => ['nullable', 'in:manual,markup'],
@@ -353,47 +345,6 @@ class ProductController extends Controller
         if ($server) {
             $data['panel_package'] = json_encode($this->buildVmSpec($request, $server));
         }
-
-        return $data;
-    }
-
-    /**
-     * Keep the provider package name as the legacy provisioning snapshot,
-     * while linking products to the server package inventory in the ERD.
-     *
-     * @throws ValidationException
-     */
-    private function withServerPackage(array $data, ?int $ignoreId = null): array
-    {
-        if (empty($data['server_package_id'])) {
-            return $data;
-        }
-
-        $package = ServerPackage::find($data['server_package_id']);
-        $existingPackageId = $ignoreId
-            ? Product::whereKey($ignoreId)->value('server_package_id')
-            : null;
-        $isExistingInactivePackage = $package
-            && (int) $package->id === (int) $existingPackageId;
-
-        if (
-            ! $package
-            || (int) $package->server_id !== (int) ($data['server_id'] ?? 0)
-            || ($package->status !== 'active' && ! $isExistingInactivePackage)
-        ) {
-            throw ValidationException::withMessages([
-                'server_package_id' => 'Pilih paket aktif yang berasal dari server tujuan produk ini.',
-            ]);
-        }
-
-        $server = Server::find($data['server_id'] ?? null);
-        if (! $server || $server->isCloud()) {
-            throw ValidationException::withMessages([
-                'server_package_id' => 'Paket server hanya berlaku untuk produk hosting, bukan produk VPS.',
-            ]);
-        }
-
-        $data['panel_package'] = $package->name;
 
         return $data;
     }

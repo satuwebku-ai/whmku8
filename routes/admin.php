@@ -37,8 +37,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Admin Routes
 |--------------------------------------------------------------------------
-| Semua route di sini otomatis diberi prefix "admin" dan
-| name prefix "admin." lewat bootstrap/app.php.
+| Semua route di sini diberi name prefix "admin." di web.php dan
+| dilayani dari subdomain pengelola tanpa prefix URL "/admin".
 |
 | Order/Invoice/Hosting Account/Domain/Klien memakai pola: daftar per-status
 | sebagai halaman terpisah + halaman detail + endpoint aksi terpisah
@@ -241,18 +241,6 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::post('vps/{vps}/attach-ip', [\App\Http\Controllers\Admin\VpsController::class, 'attachIp'])->name('vps.attach-ip');
         Route::delete('vps/{vps}', [\App\Http\Controllers\Admin\VpsController::class, 'destroy'])->name('vps.destroy');
         Route::resource('servers', ServerController::class)->except('show');
-        Route::get('server-groups', [\App\Http\Controllers\Admin\ServerGroupController::class, 'index'])->name('server-groups.index');
-        Route::get('server-groups/create', [\App\Http\Controllers\Admin\ServerGroupController::class, 'create'])->name('server-groups.create');
-        Route::post('server-groups', [\App\Http\Controllers\Admin\ServerGroupController::class, 'store'])->name('server-groups.store');
-        Route::get('server-groups/{serverGroup}/edit', [\App\Http\Controllers\Admin\ServerGroupController::class, 'edit'])->name('server-groups.edit');
-        Route::put('server-groups/{serverGroup}', [\App\Http\Controllers\Admin\ServerGroupController::class, 'update'])->name('server-groups.update');
-        Route::delete('server-groups/{serverGroup}', [\App\Http\Controllers\Admin\ServerGroupController::class, 'destroy'])->name('server-groups.destroy');
-        Route::get('servers/{server}/packages', [\App\Http\Controllers\Admin\ServerPackageController::class, 'index'])->name('servers.packages.index');
-        Route::get('servers/{server}/packages/create', [\App\Http\Controllers\Admin\ServerPackageController::class, 'create'])->name('servers.packages.create');
-        Route::post('servers/{server}/packages', [\App\Http\Controllers\Admin\ServerPackageController::class, 'store'])->name('servers.packages.store');
-        Route::get('servers/{server}/packages/{package}/edit', [\App\Http\Controllers\Admin\ServerPackageController::class, 'edit'])->name('servers.packages.edit');
-        Route::put('servers/{server}/packages/{package}', [\App\Http\Controllers\Admin\ServerPackageController::class, 'update'])->name('servers.packages.update');
-        Route::delete('servers/{server}/packages/{package}', [\App\Http\Controllers\Admin\ServerPackageController::class, 'destroy'])->name('servers.packages.destroy');
         Route::post('servers/{server}/test-connection', [ServerController::class, 'testConnection'])->name('servers.test-connection');
         Route::post('servers/{server}/login-whm', [ServerController::class, 'loginWhm'])->name('servers.login-whm');
         Route::get('servers/{server}/branding', [ServerController::class, 'branding'])->name('servers.branding');

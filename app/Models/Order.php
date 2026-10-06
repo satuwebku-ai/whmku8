@@ -151,11 +151,6 @@ class Order extends Model
         return $this->hasMany(OrderStatusLog::class);
     }
 
-    public function provisionings(): HasMany
-    {
-        return $this->hasMany(Provisioning::class);
-    }
-
     /**
      * Domain yang dibuat dari order ini — sisi kebalikan dari
      * Domain::order() (belongsTo lewat domains.order_id, sudah ada
