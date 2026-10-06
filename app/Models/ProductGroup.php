@@ -26,6 +26,31 @@ class ProductGroup extends Model
      * Dipakai supaya semua tautan otomatis benar tanpa tiap pemanggil
      * perlu tahu jenis kategorinya.
      */
+    /** Jenis bawaan yang punya perilaku khusus; jenis lain (diketik manual) diperlakukan seperti hosting. */
+    public const BUILTIN_TYPES = ['hosting' => 'Hosting (cPanel/WHM)', 'vps' => 'VPS / Cloud Server'];
+
+    public function isCustomType(): bool
+    {
+        return ! array_key_exists($this->type ?? 'hosting', self::BUILTIN_TYPES);
+    }
+
+    /** Nama jenis untuk badge/dropdown, mis. "VPS", "Hosting", atau "Dedicated Server". */
+    public function typeLabel(): string
+    {
+        return match ($this->type ?? 'hosting') {
+            'vps' => 'VPS',
+            'hosting' => 'Hosting',
+            default => ucwords(str_replace(['-', '_'], ' ', (string) $this->type)),
+        };
+    }
+
+    /** Jenis kustom yang sudah pernah dipakai -- jadi saran di form. */
+    public static function customTypeSuggestions(): array
+    {
+        return static::query()->whereNotIn('type', array_keys(self::BUILTIN_TYPES))
+            ->distinct()->orderBy('type')->pluck('type')->all();
+    }
+
     public function urlSection(): string
     {
         return ($this->type ?? 'hosting') === 'vps' ? 'vps' : 'hosting';

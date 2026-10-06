@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\RegistrarController;
 use App\Http\Controllers\Admin\ServerController;
+use App\Http\Controllers\Admin\ServerGroupController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\TicketController;
 use App\Http\Controllers\Admin\TldController;
@@ -37,8 +38,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Admin Routes
 |--------------------------------------------------------------------------
-| Semua route di sini terikat ke host admin yang dikonfigurasi di
-| config/portals.php dan diberi name prefix "admin." lewat web.php.
+| Semua route di sini otomatis diberi prefix "admin" dan
+| name prefix "admin." lewat bootstrap/app.php.
 |
 | Order/Invoice/Hosting Account/Domain/Klien memakai pola: daftar per-status
 | sebagai halaman terpisah + halaman detail + endpoint aksi terpisah
@@ -240,6 +241,7 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::post('vps/{vps}/power', [\App\Http\Controllers\Admin\VpsController::class, 'power'])->name('vps.power');
         Route::post('vps/{vps}/attach-ip', [\App\Http\Controllers\Admin\VpsController::class, 'attachIp'])->name('vps.attach-ip');
         Route::delete('vps/{vps}', [\App\Http\Controllers\Admin\VpsController::class, 'destroy'])->name('vps.destroy');
+        Route::resource('server-groups', ServerGroupController::class)->except('show');
         Route::resource('servers', ServerController::class)->except('show');
         Route::post('servers/{server}/test-connection', [ServerController::class, 'testConnection'])->name('servers.test-connection');
         Route::post('servers/{server}/login-whm', [ServerController::class, 'loginWhm'])->name('servers.login-whm');

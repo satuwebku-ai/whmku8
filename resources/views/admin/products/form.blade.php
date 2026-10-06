@@ -39,7 +39,7 @@
                 <option value="">Pilih kategori</option>
                 @foreach ($categories as $cat)
                   <option value="{{ $cat->id }}" data-type="{{ $cat->type ?? 'hosting' }}" @selected(old('product_category_id', $product->product_category_id) == $cat->id)>
-                    {{ $cat->name }} — {{ ($cat->type ?? 'hosting') === 'vps' ? 'VPS' : 'Hosting' }}
+                    {{ $cat->name }} — {{ $cat->typeLabel() }}
                   </option>
                 @endforeach
               </select>
@@ -157,12 +157,12 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <label class="form-label small fw-medium text-dark">Server Tujuan</label>
-              <select name="server_id" id="serverSelect" class="form-select" style="{{ $selectStyle }}" data-server-edit-base="{{ route('admin.servers.edit', ['server' => '__ID__']) }}">
+              <select name="server_id" id="serverSelect" class="form-select" style="{{ $selectStyle }}" data-server-edit-base="{{ url('/admin/servers') }}/__ID__/edit">
                 <option value="">— Manual, tanpa auto-provisioning —</option>
                 @foreach ($servers as $srv)
                   <option value="{{ $srv->id }}" data-kind="{{ $srv->isCloud() ? 'vps' : 'hosting' }}"
                           @selected(old('server_id', $product->server_id) == $srv->id)>
-                    {{ $srv->name }}{{ $srv->isCloud() ? ' (Cloud/VPS · ' . $srv->vpsLabel() . ')' : ' (cPanel)' }}
+                    {{ $srv->group ? $srv->group->name . ' · ' : '' }}{{ $srv->name }}{{ $srv->isCloud() ? ' (Cloud/VPS · ' . $srv->vpsLabel() . ')' : ' (' . $srv->panelLabel() . ')' }}
                   </option>
                 @endforeach
               </select>

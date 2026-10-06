@@ -132,7 +132,7 @@ class ProductController extends Controller
 
     private function formView(Product $product): View
     {
-        $servers = Server::where('is_active', true)->orderBy('name')->get();
+        $servers = Server::with('group')->where('is_active', true)->orderBy('name')->get();
 
         return view('admin.products.form', [
             'product' => $product,

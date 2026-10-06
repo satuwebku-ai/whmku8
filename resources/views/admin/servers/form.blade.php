@@ -6,7 +6,12 @@
 
   @php
     $selectStyle = 'padding:.25rem .6rem;font-size:.875rem;border-radius:.375rem';
-    $currentPanel = old('panel', $server->panel ?: 'cpanel');
+    $knownPanels  = ['cpanel', 'directadmin', 'plesk', 'vps'];
+    $rawPanel     = old('panel', $server->panel ?: 'cpanel');
+    $panelIsCustom = $rawPanel === '__custom' || ! in_array($rawPanel, $knownPanels, true);
+    $currentPanel = $panelIsCustom ? '__custom' : $rawPanel;
+    $panelCustomVal = old('panel_custom', $rawPanel === '__custom' ? '' : ($panelIsCustom ? $rawPanel : ''));
+    $currentGroup = old('server_group_id', $server->server_group_id);
     $currentVps   = old('vps_provider', $server->vps_provider);
 
     // Profil tampilan per JENIS PANEL hosting biasa. Hanya field yang ada
@@ -28,6 +33,15 @@
           'hostname' => ['label' => 'Hostname / IP', 'placeholder' => 'server1.contoh.com', 'required' => true],
           'api_username' => ['label' => 'Admin Username', 'placeholder' => 'admin', 'required' => true],
           'api_token' => ['label' => 'Login Key (Token)'],
+        ],
+      ],
+      '__custom' => [
+        'tone' => 'secondary', 'icon' => 'fa-pen', 'port' => null, 'ns' => true, 'rateCard' => false,
+        'hint' => '<b>Panel diketik manual</b> — data server disimpan untuk pencatatan. Provisioning otomatis &amp; tes koneksi <b>belum tersedia</b> untuk panel kustom; akun hosting dibuat manual. Isi hanya kolom yang Anda perlukan.',
+        'fields' => [
+          'hostname' => ['label' => 'Hostname / IP', 'placeholder' => 'server1.contoh.com', 'required' => true],
+          'api_username' => ['label' => 'Username (opsional)', 'placeholder' => 'admin', 'required' => false],
+          'api_token' => ['label' => 'Token / Password (opsional)', 'required' => false],
         ],
       ],
       'plesk' => [
@@ -86,9 +100,28 @@
           <option value="directadmin" @selected($currentPanel === 'directadmin')>DirectAdmin (segera)</option>
           <option value="plesk" @selected($currentPanel === 'plesk')>Plesk (segera)</option>
           <option value="vps" @selected($currentPanel === 'vps')>VM / VPS (Cloud)</option>
+          <option value="__custom" @selected($currentPanel === '__custom')>Lainnya — ketik manual…</option>
         </select>
+        <input type="text" name="panel_custom" id="panelCustom" value="{{ $panelCustomVal }}" maxlength="50"
+               class="form-control form-control-sm mt-2 {{ $panelIsCustom ? '' : 'd-none' }}" placeholder="mis. Webmin, CyberPanel, aaPanel" {{ $panelIsCustom ? '' : 'disabled' }}>
         @error('panel') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       </div>
+    </div>
+
+    {{-- Server Group: pilih yang ada, atau ketik nama baru (otomatis dibuat saat disimpan). --}}
+    <div class="mb-3">
+      <label class="form-label small fw-medium text-dark">Server Group <span class="text-muted fw-normal">(opsional)</span></label>
+      <select name="server_group_id" id="groupSelect" class="form-select" style="{{ $selectStyle }}">
+        <option value="">— Tanpa grup —</option>
+        @foreach ($groups as $g)
+          <option value="{{ $g->id }}" @selected((string) $currentGroup === (string) $g->id)>{{ $g->name }}</option>
+        @endforeach
+        <option value="__new" @selected($currentGroup === '__new')>+ Grup baru — ketik manual…</option>
+      </select>
+      <input type="text" name="server_group_new" id="groupNew" value="{{ old('server_group_new') }}" maxlength="255"
+             class="form-control form-control-sm mt-2 {{ $currentGroup === '__new' ? '' : 'd-none' }}" placeholder="mis. Jakarta, Singapore" {{ $currentGroup === '__new' ? '' : 'disabled' }}>
+      @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+      @error('server_group_new') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
     </div>
 
     {{-- Hanya tampil kalau Jenis Panel = VM / VPS. --}}
@@ -234,6 +267,9 @@
       const panels      = @json($panelProfiles);
       const providers   = @json($vpsProfiles);
 
+      const panelCustom = $('panelCustom');
+      const groupSelect = $('groupSelect');
+      const groupNew    = $('groupNew');
       const hint = $('serverHint');
       const el = {
         hostname: $('fieldHostname'), apiUser: $('fieldApiUsername'), apiToken: $('fieldApiToken'), port: $('fieldPort'),
@@ -261,7 +297,7 @@
         if (panelSelect.value === 'vps') {
           return providers[vpsSelect.value] || null;
         }
-        return panels[panelSelect.value] || panels.cpanel;
+        return panels[panelSelect.value] || panels.cpanel;  // '__custom' ada di panels
       }
 
       function setHint(cfg) {
@@ -276,6 +312,16 @@
 
       function sync() {
         const isVps = panelSelect.value === 'vps';
+        const isCustomPanel = panelSelect.value === '__custom';
+        panelCustom.classList.toggle('d-none', !isCustomPanel);
+        panelCustom.disabled = !isCustomPanel;
+        panelCustom.required = isCustomPanel;
+
+        const isNewGroup = groupSelect.value === '__new';
+        groupNew.classList.toggle('d-none', !isNewGroup);
+        groupNew.disabled = !isNewGroup;
+        groupNew.required = isNewGroup;
+
         const cfg = currentProfile();
         const f = cfg ? cfg.fields : {};
 
@@ -316,7 +362,7 @@
         if (f.api_token) {
           el.labelToken.textContent = f.api_token.label + (isEdit ? ' (kosongkan jika tidak diganti)' : '');
           el.apiToken.placeholder = isEdit ? '••••••••••••' : '';
-          el.apiToken.required = !isEdit;
+          el.apiToken.required = !isEdit && !isCustomPanel;
         }
 
         // Harga modal (hanya provider yang mendukung tarik harga)
@@ -330,6 +376,7 @@
 
       panelSelect.addEventListener('change', sync);
       vpsSelect.addEventListener('change', sync);
+      groupSelect.addEventListener('change', sync);
       sync();
     })();
   </script>

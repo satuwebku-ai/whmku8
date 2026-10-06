@@ -57,6 +57,20 @@ class Server extends Model
         return $query->where(fn (Builder $q) => $q->where('panel', 'vps')->orWhereNotNull('vps_provider'));
     }
 
+    /** Panel bawaan yang punya adapter provisioning otomatis / terdata. */
+    public const KNOWN_PANELS = ['cpanel' => 'cPanel / WHM', 'directadmin' => 'DirectAdmin', 'plesk' => 'Plesk', 'vps' => 'VM / VPS (Cloud)'];
+
+    /** True kalau Jenis Panel diketik manual (bukan salah satu panel bawaan). */
+    public function isCustomPanel(): bool
+    {
+        return ! array_key_exists((string) $this->panel, self::KNOWN_PANELS);
+    }
+
+    public function panelLabel(): string
+    {
+        return self::KNOWN_PANELS[$this->panel] ?? ucwords(str_replace(['-', '_'], ' ', (string) $this->panel));
+    }
+
     public function isCloud(): bool
     {
         return $this->panel === 'vps' || filled($this->vps_provider);
