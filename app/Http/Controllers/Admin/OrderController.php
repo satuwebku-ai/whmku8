@@ -1,0 +1,177 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Services\Billing\DeletionGuard;
+use App\Http\Controllers\Controller;
+use App\Models\Client;
+use App\Models\HostingAccount;
+use App\Models\Order;
+use App\Enums\OrderStatus;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class OrderController extends Controller
+{
+
+    public function ordersBootstrap(Request $request): View
+    {
+        return view('admin.orders.index', $this->listData($request, null));
+    }
+
+    public function pendingBootstrap(Request $request): View
+    {
+        return view('admin.orders.index', $this->listData($request, OrderStatus::PendingPayment->value));
+    }
+
+    public function activeBootstrap(Request $request): View
+    {
+        return view('admin.orders.index', $this->listData($request, OrderStatus::Completed->value));
+    }
+
+    public function suspendedBootstrap(Request $request): View
+    {
+        return view('admin.orders.index', $this->listData($request, OrderStatus::Failed->value));
+    }
+
+    public function cancelledBootstrap(Request $request): View
+    {
+        return view('admin.orders.index', $this->listData($request, 'cancelled'));
+    }
+
+    private function listData(Request $request, ?string $status): array
+    {
+        $orders = Order::query()
+            ->with('client')
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($request->search, fn ($q) => $q->where('order_number', 'like', "%{$request->search}%")
+                ->orWhere('product_name', 'like', "%{$request->search}%"))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return ['orders' => $orders, 'activeStatus' => $status];
+    }
+
+    public function detailsBootstrap(Order $order): View
+    {
+        $order->load(['client', 'hostingAccount', 'domain', 'invoice', 'invoiceItem.invoice']);
+
+        return view('admin.orders.details', compact('order'));
+    }
+
+    public function createBootstrap(): View
+    {
+        $clients = Client::orderBy('name')->get();
+        $hostingAccounts = HostingAccount::orderBy('domain')->get();
+
+        return view('admin.orders.form', ['order' => new Order(), 'clients' => $clients, 'hostingAccounts' => $hostingAccounts]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $this->validated($request);
+
+        Order::create($data);
+
+        return redirect()->route('admin.orders')->with('success', 'Order berhasil dibuat.');
+    }
+
+    public function editBootstrap(Order $order): View
+    {
+        $clients = Client::orderBy('name')->get();
+        $hostingAccounts = HostingAccount::orderBy('domain')->get();
+
+        return view('admin.orders.form', ['order' => $order, 'clients' => $clients, 'hostingAccounts' => $hostingAccounts]);
+    }
+
+    public function update(Request $request, Order $order): RedirectResponse
+    {
+        $data = $this->validated($request);
+        $targetStatus = $data['status'];
+        unset($data['status']);
+
+        $order->update($data);
+        if ($targetStatus !== $order->status->value) {
+            $order->transitionTo(OrderStatus::from($targetStatus), 'Status order diubah melalui admin.', auth('admin')->id());
+        }
+
+        return redirect()->route('admin.orders')->with('success', 'Order berhasil diperbarui.');
+    }
+
+    public function destroy(Order $order, DeletionGuard $guard): RedirectResponse
+    {
+        $reason = $guard->deleteLocked($order, fn ($o) => $guard->forOrder($o));
+
+        if ($reason) {
+            return back()->with('error', $reason);
+        }
+
+        $guard->audit('order', "Order {$order->order_number} dihapus",
+            "Soft delete, bisa dipulihkan: php artisan records:restore order {$order->id}", $order->client_id);
+
+        return redirect()->route('admin.orders')->with('success', 'Order dihapus (soft delete, bisa dipulihkan lewat php artisan records:restore).');
+    }
+
+    /**
+     * Terima order — set status jadi aktif.
+     */
+    public function accept(Request $request): RedirectResponse
+    {
+        $order = Order::findOrFail($request->input('order_id'));
+        $order->transitionTo(OrderStatus::Completed, 'Order diterima secara manual oleh admin.', auth('admin')->id());
+
+        return back()->with('success', "Order #{$order->order_number} diterima & diaktifkan.");
+    }
+
+    /**
+     * Batalkan order.
+     */
+    public function cancel(Request $request): RedirectResponse
+    {
+        $order = Order::findOrFail($request->input('order_id'));
+        $order->cancel('Order dibatalkan oleh admin.', auth('admin')->id());
+
+        return back()->with('success', "Order #{$order->order_number} dibatalkan.");
+    }
+
+    /**
+     * Kembalikan order ke status pending.
+     */
+    public function markPending(Request $request): RedirectResponse
+    {
+        $order = Order::findOrFail($request->input('order_id'));
+        $order->transitionTo(OrderStatus::PendingPayment, 'Order dikembalikan ke pending payment oleh admin.', auth('admin')->id());
+
+        return back()->with('success', "Order #{$order->order_number} dikembalikan ke pending.");
+    }
+
+    /**
+     * Simpan catatan internal staf untuk order ini.
+     */
+    public function orderNotes(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'order_id' => ['required', \Illuminate\Validation\Rule::exists('orders', 'id')->whereNull('deleted_at')],
+            'internal_notes' => ['nullable', 'string'],
+        ]);
+
+        $order = Order::findOrFail($data['order_id']);
+        $order->update(['internal_notes' => $data['internal_notes']]);
+
+        return back()->with('success', 'Catatan order berhasil disimpan.');
+    }
+
+    private function validated(Request $request): array
+    {
+        return $request->validate([
+            'client_id'           => ['required', 'exists:clients,id'],
+            'hosting_account_id'  => ['nullable', 'exists:hosting_accounts,id'],
+            'product_name'        => ['required', 'string', 'max:255'],
+            'order_type'          => ['required', 'in:hosting,domain,vps,addon,other'],
+            'amount'              => ['required', 'numeric', 'min:0'],
+            'status'              => ['required', 'in:draft,requirements_pending,requirements_review,requirements_rejected,requirements_approved,pending_payment,paid,provisioning,completed,failed,cancelled,expired'],
+        ]);
+    }
+}

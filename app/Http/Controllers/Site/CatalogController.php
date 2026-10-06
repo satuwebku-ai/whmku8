@@ -1,0 +1,405 @@
+<?php
+
+namespace App\Http\Controllers\Site;
+
+use App\Http\Controllers\Controller;
+use App\Models\Announcement;
+use App\Models\Product;
+use App\Models\ProductGroup;
+use App\Models\Coupon;
+use App\Models\Tld;
+use App\Support\ProductPromos;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class CatalogController extends Controller
+{
+
+    public function homeBootstrap(Request $request): View
+    {
+        $clientPortalHost = trim((string) config('lumora.client_portal_host', ''));
+        if ($clientPortalHost !== '' && strcasecmp(rtrim($request->getHost(), '.'), rtrim($clientPortalHost, '.')) === 0) {
+            return view('public.client-storefront', $this->clientStorefrontData());
+        }
+
+        return view('public.home', $this->homeData());
+    }
+
+    private function clientStorefrontData(): array
+    {
+        return [
+            'categories' => $this->homeCategories(),
+            'storefrontNavLinks' => $this->clientStorefrontNavLinks(),
+        ];
+    }
+
+    /**
+     * Keep the client storefront navigation aligned with the site's active
+     * menu configuration, while always providing working Home/Store links.
+     *
+     * @return array<int, array{label: string, url: string}>
+     */
+    private function clientStorefrontNavLinks(): array
+    {
+        $links = [
+            ['label' => 'Home', 'url' => route('home')],
+            ['label' => 'Store', 'url' => route('catalog.index')],
+        ];
+        $seen = ['home' => true, 'beranda' => true, 'store' => true, 'toko' => true, 'hosting' => true];
+
+        $menus = \App\Models\NavMenu::active()
+            ->whereNull('parent_id')
+            ->with(['page', 'children.page', 'defaultChild.page'])
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($menus as $menu) {
+            $label = trim((string) $menu->label);
+            $normalizedLabel = mb_strtolower($label);
+            $url = $menu->resolved_url;
+            $isCoreStoreRoute = $menu->type === 'route'
+                && in_array($menu->route_name, ['home', 'catalog.index', 'catalog.vps'], true);
+
+            if ($label === '' || ! $url || $url === '#' || $isCoreStoreRoute || isset($seen[$normalizedLabel])) {
+                continue;
+            }
+
+            $links[] = ['label' => $label, 'url' => $url];
+            $seen[$normalizedLabel] = true;
+        }
+
+        $pages = \App\Models\CmsPage::published()
+            ->whereIn('slug', ['faq', 'contact', 'contact-us', 'kontak'])
+            ->get();
+
+        foreach ($pages as $page) {
+            $label = in_array($page->slug, ['contact', 'contact-us', 'kontak'], true)
+                ? 'Contact'
+                : 'FAQ';
+            $normalizedLabel = mb_strtolower($label);
+
+            if (isset($seen[$normalizedLabel])) {
+                continue;
+            }
+
+            $links[] = ['label' => $label, 'url' => route('page.show', $page->slug)];
+            $seen[$normalizedLabel] = true;
+        }
+
+        if (! isset($seen['announcements']) && ! isset($seen['pengumuman'])) {
+            $links[] = ['label' => 'Announcements', 'url' => route('announcements.index')];
+        }
+
+        return $links;
+    }
+
+    private function homeData(): array
+    {
+        // Diatur lewat Admin -> Sistem -> Pengaturan -> Halaman Depan.
+        $featuredLimit = max(1, (int) \App\Models\Setting::get('home_featured_limit', 3));
+        $announcementsLimit = max(1, (int) \App\Models\Setting::get('home_announcements_limit', 3));
+        $vpsLimit = max(1, (int) \App\Models\Setting::get('home_vps_limit', 3));
+
+        $categories = $this->homeCategories();
+
+        // Produk VPS dipisah dari hosting biasa lewat Product::scopeVpsType()/
+        // scopeHostingType() -- SATU sumber kebenaran (kategori type='vps',
+        // dengan server cloud sebagai jaring pengaman), dipakai sama persis
+        // oleh ProductController::indexData(). Sebelumnya section ini
+        // memfilter dari server_id saja, jadi produk VPS yang kategorinya
+        // sudah type='vps' tapi belum/salah pasang server cloud (mis. server
+        // belum dipilih) ikut nyasar ke "Paket Hosting Pilihan".
+        $featured = Product::active()
+            ->hostingType()
+            ->with('category')
+            ->where('is_featured', true)
+            ->orderBy('sort_order')
+            ->take($featuredLimit)
+            ->get();
+
+        // Kalau belum ada yang ditandai unggulan, tampilkan paket termurah
+        // supaya halaman depan tidak kosong.
+        if ($featured->isEmpty()) {
+            $featured = Product::active()
+                ->hostingType()
+                ->with('category')
+                ->orderByRaw('COALESCE(price_monthly, price_quarterly, price_semi_annually, price_annually) ASC')
+                ->take($featuredLimit)
+                ->get();
+        }
+
+        // Paket VPS -- section terpisah dari hosting biasa.
+        $vpsProducts = Product::active()
+            ->vpsType()
+            ->with('category')
+            ->orderByDesc('is_featured')
+            ->orderBy('sort_order')
+            ->take($vpsLimit)
+            ->get();
+
+        // TLD populer untuk ditampilkan di bawah kotak pencarian domain.
+        // Prioritas: TLD yang dicentang "Tampil di Beranda" di
+        // /admin/tlds. Kalau belum ada yang dicentang, pakai 6 termurah.
+        $popularTlds = Tld::where('is_active', true)
+            ->where('register_price', '>', 0)
+            ->where('show_on_home', true)
+            ->orderBy('search_order')
+            ->orderBy('register_price')
+            ->take(12)
+            ->get();
+
+        if ($popularTlds->isEmpty()) {
+            $popularTlds = Tld::where('is_active', true)
+                ->where('register_price', '>', 0)
+                ->orderBy('register_price')
+                ->take(6)
+                ->get();
+        }
+
+        // Promo per-TLD untuk kolom "Promo" di tabel harga domain beranda:
+        // dari kupon yang ditayangkan di halaman Promo dan menyasar TLD
+        // tertentu. Bila ada beberapa, dipakai yang harganya paling murah.
+        $tldPromos = $this->homeTldPromos($popularTlds);
+
+        // Promo per-produk (hosting & VPS) untuk kartu paket di beranda:
+        // nilai diskon tampil dan harga jual dikurangi -- hanya bila ada
+        // kupon publik yang berlaku untuk produk itu.
+        $productPromos = ProductPromos::for($featured->concat($vpsProducts));
+
+        $announcements = Announcement::live()
+            ->orderByDesc('is_pinned')
+            ->orderByDesc('published_at')
+            ->take($announcementsLimit)
+            ->get();
+
+        $banners = \App\Models\PromoBanner::live()->forPage('home')->orderBy('sort_order')->get();
+
+        // ── Susunan section beranda ──
+        // Urutan bawaan sesuai alur yang diinginkan: cari domain dulu,
+        // lalu banner promo, baru paket-paketnya, dan ditutup ajakan
+        // mendaftar. Admin bisa mengubah urutan & menyembunyikan section
+        // lewat Pengaturan Halaman Depan.
+        //
+        // 'available' = section ini punya isi. Section tanpa isi
+        // OTOMATIS tidak dirender, walau toggle-nya menyala -- supaya
+        // tidak ada blok kosong menganga di beranda (mis. section VPS
+        // saat belum ada satu pun paket VPS dibuat).
+        $sectionData = [
+            'domain'        => true,
+            'banner'        => $banners->isNotEmpty(),
+            'benefits'      => true,
+            'hosting'       => $featured->isNotEmpty(),
+            'vps'           => $vpsProducts->isNotEmpty(),
+            'categories'    => $categories->isNotEmpty(),
+            'announcements' => $announcements->isNotEmpty(),
+            'cta'           => true,
+        ];
+
+        $defaultOrder = ['domain', 'banner', 'benefits', 'hosting', 'vps', 'categories', 'announcements', 'cta'];
+
+        $savedOrder = json_decode((string) \App\Models\Setting::get('home_section_order'), true);
+        $order = is_array($savedOrder) && $savedOrder ? $savedOrder : $defaultOrder;
+
+        // Section baru yang belum ada di urutan tersimpan tetap ikut
+        // tampil (di belakang), bukan hilang diam-diam.
+        $order = array_values(array_unique(array_merge(
+            array_values(array_intersect($order, $defaultOrder)),
+            $defaultOrder
+        )));
+
+        $homeSections = [];
+
+        foreach ($order as $key) {
+            $visible = \App\Models\Setting::get('home_show_' . $key, '1') === '1';
+            $homeSections[$key] = $visible && ($sectionData[$key] ?? false);
+        }
+
+        $homeOrder = $order;
+
+        return compact(
+            'categories', 'featured', 'vpsProducts', 'popularTlds', 'tldPromos', 'productPromos',
+            'announcements', 'banners', 'homeSections', 'homeOrder'
+        );
+    }
+
+    private function homeCategories()
+    {
+        $categoriesLimit = (int) \App\Models\Setting::get('home_categories_limit', 6);
+        $categories = ProductGroup::active()
+            ->withCount(['products' => fn ($q) => $q->active()])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($cat) => $cat->products_count > 0);
+
+        // 0 berarti "tanpa batas".
+        return $categoriesLimit > 0 ? $categories->take($categoriesLimit) : $categories;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Tld>  $tlds
+     * @return array<int, array{code: string, label: string, years: int, before: float, after: float, ends: ?string}>
+     */
+    private function homeTldPromos($tlds): array
+    {
+        $found = [];
+
+        try {
+            foreach (Coupon::publicPromo()->get() as $coupon) {
+                if (! $coupon->targetsTlds()) {
+                    continue;
+                }
+
+                $targets = array_map('intval', (array) $coupon->tld_ids);
+
+                foreach ($tlds as $tld) {
+                    if (! in_array((int) $tld->id, $targets, true)) {
+                        continue;
+                    }
+
+                    $years  = max((int) $tld->min_years, 1);
+                    $before = (float) $tld->priceForYears($years);
+
+                    if ($before <= 0 || $before < (float) $coupon->min_order) {
+                        continue;
+                    }
+
+                    $after = $before - $coupon->calculateDiscount($before);
+
+                    if (isset($found[$tld->id]) && $found[$tld->id]['after'] <= $after) {
+                        continue;
+                    }
+
+                    $found[$tld->id] = [
+                        'code'   => $coupon->code,
+                        'label'  => $coupon->value_label,
+                        'years'  => $years,
+                        'before' => $before,
+                        'after'  => $after,
+                        'ends'   => $coupon->expires_at?->format('d M Y'),
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Promo hanyalah pemanis; beranda tidak boleh gagal karenanya
+            // (mis. kolom kupon baru belum dimigrasi).
+            report($e);
+
+            return [];
+        }
+
+        return $found;
+    }
+
+    public function indexBootstrap(): View
+    {
+        return view('public.catalog.index', $this->indexData());
+    }
+
+    private function indexData(): array
+    {
+        // Halaman /hosting hanya untuk hosting biasa -- kategori & produk
+        // unggulan VPS ada di /vps (lihat vpsData()).
+        $categories = ProductGroup::active()
+            ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'vps'))
+            ->withCount(['products' => fn ($q) => $q->active()->hostingType()])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($cat) => $cat->products_count > 0);
+
+        $featured = Product::active()
+            ->hostingType()
+            ->with('category')
+            ->where('is_featured', true)
+            ->orderBy('sort_order')
+            ->take(6)
+            ->get();
+
+        $banners = \App\Models\PromoBanner::live()->forPage('catalog')->orderBy('sort_order')->get();
+
+        $productPromos = ProductPromos::for($featured);
+
+        return compact('categories', 'featured', 'banners', 'productPromos');
+    }
+
+    /**
+     * Halaman /vps -- semua paket VPS (cloud server), dengan harga promo
+     * bila ada kupon publik yang berlaku. Sumber produknya sama persis
+     * dengan section VPS di beranda (Product::scopeVpsType()).
+     */
+    public function vpsBootstrap(): View
+    {
+        return view('public.catalog.vps', $this->vpsData());
+    }
+
+    private function vpsData(): array
+    {
+        $products = Product::active()
+            ->vpsType()
+            ->with('category')
+            ->orderByDesc('is_featured')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $categories = ProductGroup::active()
+            ->where('type', 'vps')
+            ->withCount(['products' => fn ($q) => $q->active()])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($cat) => $cat->products_count > 0);
+
+        $banners = \App\Models\PromoBanner::live()->forPage('catalog')->orderBy('sort_order')->get();
+
+        $productPromos = ProductPromos::for($products);
+
+        return compact('products', 'categories', 'banners', 'productPromos');
+    }
+
+    public function categoryBootstrap(string $section, string $slug): View
+    {
+        return view('public.catalog.category', $this->categoryData($slug));
+    }
+
+    private function categoryData(string $slug): array
+    {
+        $category = ProductGroup::active()->where('slug', $slug)->firstOrFail();
+
+        $products = $category->products()
+            ->active()
+            ->with('category')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->paginate(12);
+
+        $productPromos = ProductPromos::for(collect($products->items()));
+
+        return compact('category', 'products', 'productPromos');
+    }
+
+    public function productBootstrap(string $section, string $categorySlug, string $productSlug): View
+    {
+        return view('public.catalog.product', $this->productData($categorySlug, $productSlug));
+    }
+
+    private function productData(string $categorySlug, string $productSlug): array
+    {
+        $category = ProductGroup::active()->where('slug', $categorySlug)->firstOrFail();
+
+        $product = Product::active()
+            ->where('product_category_id', $category->id)
+            ->where('slug', $productSlug)
+            ->with(['optionGroups' => fn ($q) => $q->active()->with(['options' => fn ($q2) => $q2->active()])])
+            ->firstOrFail();
+
+        $related = Product::active()
+            ->where('product_category_id', $category->id)
+            ->where('id', '!=', $product->id)
+            ->take(3)
+            ->get();
+
+        return compact('category', 'product', 'related');
+    }
+}

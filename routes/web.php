@@ -1,0 +1,236 @@
+<?php
+
+use App\Http\Controllers\Payment\WebhookController;
+use App\Http\Controllers\Site\CartController;
+use App\Http\Controllers\Site\CatalogController;
+use App\Http\Controllers\Site\DomainSearchController;
+use App\Http\Controllers\Site\PremiumDomainController;
+use App\Http\Controllers\Site\PromoController;
+use App\Http\Controllers\Site\ChatController as SiteChatController;
+use App\Http\Controllers\Site\PageController as SitePageController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
+    ->middleware('throttle:60,1')
+    ->name('csp-report');
+
+$clientPortalHost = trim((string) config('lumora.client_portal_host', ''));
+$publicSiteHost = trim((string) config('lumora.public_site_host', ''));
+
+if ($publicSiteHost === '') {
+    $publicSiteHost = (string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?: '');
+}
+
+if ($clientPortalHost !== '') {
+    if ($publicSiteHost === '') {
+        throw new \InvalidArgumentException(
+            'Set PUBLIC_SITE_HOST or APP_URL when CLIENT_PORTAL_HOST is enabled.'
+        );
+    }
+
+    if (strcasecmp($clientPortalHost, $publicSiteHost) === 0) {
+        throw new \InvalidArgumentException(
+            'CLIENT_PORTAL_HOST must be different from the public site host.'
+        );
+    }
+
+    // Portal klien berada di /client pada subdomain agar root subdomain dapat
+    // menampilkan storefront. Nama rute client.* tetap dipertahankan.
+    Route::domain($clientPortalHost)
+        ->prefix('client')
+        ->name('client.')
+        ->group(base_path('routes/client.php'));
+
+    // URL portal lama di situs utama dipindahkan ke path /client pada subdomain.
+    // Hanya GET/HEAD yang dialihkan; data POST lama tidak dikirim lintas host.
+    Route::domain($publicSiteHost)->get('client/{path?}', function (Request $request, ?string $path = null) use ($clientPortalHost) {
+        $scheme = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https'));
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            $scheme = 'https';
+        }
+
+        $target = $scheme . '://' . $clientPortalHost . '/client/' . ltrim((string) $path, '/');
+        if ($query = $request->getQueryString()) {
+            $target .= '?' . $query;
+        }
+
+        return redirect()->away($target, 302);
+    })->where('path', '.*')->name('client.legacy-redirect');
+} else {
+    // Tanpa CLIENT_PORTAL_HOST, perilaku lama /client tetap dipakai.
+    Route::prefix('client')->name('client.')->group(base_path('routes/client.php'));
+}
+
+// Logo, favicon, gambar banner — dilayani lewat Laravel (bukan file
+// statis), supaya kebal terhadap perbedaan folder repository vs folder
+// yang benar-benar dilayani web server (lihat BrandingAssetController).
+Route::get('branding/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'branding'])->name('branding.file');
+Route::get('banner-image/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'banner'])->name('banner.file');
+
+// Font Awesome lokal — bukan CDN, supaya ikon tidak hilang/tampilan
+// tidak kosong kalau CDN pihak ketiga lambat/tidak bisa diakses. Nama
+// rute meniru struktur folder asli (css/, webfonts/) supaya path
+// relatif di dalam CSS-nya tetap benar tanpa perlu disunting.
+Route::get('vendor/fontawesome/css/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'fontAwesomeCss'])->name('fontawesome.css');
+Route::get('vendor/fontawesome/webfonts/{filename}', [\App\Http\Controllers\BrandingAssetController::class, 'fontAwesomeWebfont'])->name('fontawesome.webfont');
+Route::get('vendor/tailwind/browser.js', [\App\Http\Controllers\BrandingAssetController::class, 'tailwindBrowser'])->name('tailwind.browser');
+
+// Portal dan situs publik berbagi widget chat, aset merek, dan tujuan balik
+// pembayaran. Rute ini mengikuti host halaman asal.
+Route::controller(SiteChatController::class)->prefix('chat')->name('chat.')->group(function () {
+    Route::get('fetch', 'fetch')->name('fetch');
+    Route::post('send', 'send')->name('send');
+    Route::get('attachment/{message}/file', 'attachmentFile')->name('attachment');
+});
+
+Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'finish'])
+    ->name('payment.finish');
+
+$registerPublicRoutes = static function (): void {
+Route::get('/', [CatalogController::class, 'homeBootstrap'])->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Toko Publik: Katalog, Cek Domain, Keranjang (Fase 7b)
+|--------------------------------------------------------------------------
+| Semua route ini bisa diakses TANPA login — pengunjung boleh menjelajah
+| katalog, cek domain, dan mengisi keranjang sebelum daftar/login.
+| Keranjang disimpan di session (lihat App\Services\Cart\CartService),
+| checkout sungguhan (jadi Order + Invoice) menyusul di Fase 7c.
+*/
+Route::controller(CatalogController::class)->group(function () {
+    Route::get('hosting', 'indexBootstrap')->name('catalog.index');
+    Route::get('vps', 'vpsBootstrap')->name('catalog.vps');
+    // Prefix URL mengikuti jenis kategori: /hosting/... untuk hosting
+    // biasa, /vps/... untuk cloud server. Dibatasi where() supaya tidak
+    // menangkap path lain yang tidak dimaksud.
+    Route::get('{section}/{category}', 'categoryBootstrap')->name('catalog.category')->where('section', 'hosting|vps');
+    Route::get('{section}/{category}/{product}', 'productBootstrap')->name('catalog.product')->where('section', 'hosting|vps');
+});
+
+Route::controller(\App\Http\Controllers\Site\LicenseController::class)->prefix('lisensi')->name('license.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('{slug}', 'show')->name('show');
+});
+
+Route::controller(DomainSearchController::class)->group(function () {
+    Route::get('cek-domain', 'searchBootstrap')->name('domain.search');
+    Route::post('cek-domain/keranjang', 'addToCart')->name('domain.add-to-cart');
+    Route::get('transfer-domain', 'transferFormBootstrap')->name('domains.transfer');
+    Route::post('transfer-domain', 'submitTransfer')->name('domains.transfer.submit');
+});
+
+// Halaman Promo publik (kupon yang ditandai publik + banner halaman "promo").
+Route::get('promo', [PromoController::class, 'index'])->name('promo.index');
+
+// Domain Premium: keluarga .id (harga tetap per karakter, sumber
+// harga dari tabel tld_premiums yang diisi admin -- lihat
+// TldPremium::sell_register_price). Klien mengetik nama + pilih
+// ekstensi, dicek (RDAP + tingkatan harga), lalu langsung dipesan
+// lewat keranjang (rute POST-nya menumpang di grup Keranjang di bawah).
+Route::controller(PremiumDomainController::class)->prefix('domain-premium')->name('domain-premium.')->group(function () {
+    Route::get('/', 'indexBootstrap')->name('index');
+    Route::post('cek', 'check')->name('check');
+});
+
+// Link referral affiliate. Dua segmen ({code} lalu opsional {campaign})
+// jadi TIDAK bentrok dengan catch-all {slug} satu-segmen di paling bawah
+// file ini, tapi tetap didaftarkan lebih awal supaya jelas urutannya.
+Route::get('ref/{code}/{campaign?}', [\App\Http\Controllers\Site\ReferralController::class, 'visit'])->name('affiliate.visit');
+
+Route::controller(CartController::class)->prefix('keranjang')->name('cart.')->group(function () {
+    Route::get('/', 'indexBootstrap')->name('index');
+    Route::post('produk', 'addProduct')->name('add-product');
+    Route::post('lisensi', 'addAddon')->name('add-addon');
+    Route::post('domain-premium', 'addPremiumDomain')->name('add-premium-domain');
+    Route::post('domain-premium-custom', 'addCustomPremium')->name('add-custom-premium');
+    Route::post('update-siklus', 'updateProductCycle')->name('update-cycle');
+    Route::post('update-tahun', 'updateDomainYears')->name('update-years');
+    Route::post('privacy', 'toggleWhoisPrivacy')->name('toggle-privacy');
+    Route::post('hapus', 'remove')->name('remove');
+    Route::post('kosongkan', 'clear')->name('clear');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Halaman Publik (CMS)
+|--------------------------------------------------------------------------
+| Halaman statis dikelola lewat menu Konten & Halaman. URL-nya bersih di
+| root (mis. /contact), bukan diawali /p/ — lihat route catch-all di
+| PALING BAWAH file ini untuk alasan urutan pendaftarannya.
+|
+| Slug yang bisa bentrok dengan route sistem (mis. "admin", "hosting")
+| ditolak sejak dibuat — lihat CmsPage::RESERVED_SLUGS.
+*/
+// Webhook pesan WhatsApp MASUK dari gateway (Fonnte/Wablas) -- lihat
+// WhatsAppWebhookController. Alamat ini yang didaftarkan di dashboard
+// gateway sebagai URL webhook.
+Route::post('webhook/whatsapp', [\App\Http\Controllers\Site\WhatsAppWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1')
+    ->name('webhook.whatsapp');
+
+// Link lama (/p/slug) yang sudah pernah dibagikan atau terindeks Google
+// tetap diarahkan ke alamat barunya, bukan langsung 404.
+Route::get('p/{slug}', function (string $slug) {
+    return redirect()->route('page.show', ['slug' => $slug], 301);
+});
+
+Route::get('announcements', [SitePageController::class, 'announcementsBootstrap'])->name('announcements.index');
+Route::get('announcements/{slug}', [SitePageController::class, 'announcementBootstrap'])->name('announcements.show');
+
+/*
+|--------------------------------------------------------------------------
+| Webhook Pembayaran (publik)
+|--------------------------------------------------------------------------
+| Dipanggil oleh server gateway, bukan browser klien. Karena itu route ini
+| dikecualikan dari CSRF di bootstrap/app.php. Keamanannya dijamin oleh
+| verifikasi signature (Midtrans) / callback token (Xendit) di service
+| masing-masing, bukan oleh session.
+|
+| URL yang didaftarkan di dashboard gateway:
+|   Midtrans -> https://domainmu.com/payment/webhook/midtrans
+|   Xendit   -> https://domainmu.com/payment/webhook/xendit
+|   Duitku   -> https://domainmu.com/payment/webhook/duitku
+*/
+Route::post('payment/webhook/{driver}', [WebhookController::class, 'handle'])
+    ->whereIn('driver', ['midtrans', 'xendit', 'duitku'])
+    ->middleware('throttle:120,1')
+    ->name('payment.webhook');
+
+/*
+|--------------------------------------------------------------------------
+| Halaman Publik (CMS) — URL bersih
+|--------------------------------------------------------------------------
+| SENGAJA diletakkan PALING BAWAH file ini. Laravel mencocokkan route
+| berdasarkan urutan pendaftaran, dan pola {slug} di sini menangkap SATU
+| segmen path apa pun (mis. /contact, /tentang-kami). Kalau route ini
+| didaftarkan lebih awal, ia akan "merebut" alamat yang seharusnya milik
+| route lain seperti /hosting atau /keranjang.
+|
+| Route admin didaftarkan lebih dulu. Portal client memakai prefix /client
+| pada subdomain jika CLIENT_PORTAL_HOST diatur.
+|
+| Sebagai lapis pengaman kedua, CmsPage::RESERVED_SLUGS mencegah slug baru
+| dibuat dengan nama yang bisa bentrok sejak awal — lihat app/Models/Page.php.
+*/
+Route::get('{slug}', [SitePageController::class, 'showBootstrap'])
+    ->name('page.show')
+    ->where('slug', '[a-z0-9\-]+');
+};
+
+if ($clientPortalHost !== '') {
+    // Admin tetap hanya di host publik; halaman toko umum tersedia di host
+    // publik dan subdomain client dengan route names yang sama.
+    Route::domain($publicSiteHost)
+        ->prefix('admin')
+        ->name('admin.')
+        ->group(base_path('routes/admin.php'));
+
+    Route::middleware(\App\Http\Middleware\EnsureAllowedSiteHost::class)
+        ->group($registerPublicRoutes);
+} else {
+    // Tanpa portal subdomain, pertahankan perilaku multi-host sebelumnya.
+    Route::prefix('admin')->name('admin.')->group(base_path('routes/admin.php'));
+    $registerPublicRoutes();
+}
