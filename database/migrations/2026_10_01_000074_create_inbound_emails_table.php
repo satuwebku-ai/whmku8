@@ -20,11 +20,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Percakapan dari email memakai tabel chat yang sama. Enum lama hanya
-        // mengenal web & whatsapp, jadi diubah ke string supaya 'email' valid.
-        Schema::table('chat_conversations', function (Blueprint $table) {
-            $table->string('channel', 20)->default('web')->change();
-        });
     }
 
     public function down(): void

@@ -2,6 +2,8 @@
 
 Aplikasi tetap satu instalasi Laravel. Situs publik tetap di `satucloudhosting.com`, area klien menggunakan `member.satucloudhosting.com`, dan panel admin menggunakan `pengelola.satucloudhosting.com`.
 
+> **Penting — migration di paket ini adalah baseline untuk instalasi/database baru.** File migration susulan sudah digabung ke file `create_` dan beberapa backfill data lama dihilangkan. Jangan mengganti folder migration atau menjalankan `migrate:fresh` pada database production yang aktif; pertahankan riwayat migration production yang sudah tercatat.
+
 ## Pengaturan aplikasi
 
 Tambahkan atau sesuaikan nilai berikut di `.env` pada server. Jangan unggah file `.env` ke arsip distribusi.
@@ -44,4 +46,4 @@ php artisan route:cache
 - `https://member.satucloudhosting.com/` — login klien, lalu dashboard klien.
 - `https://pengelola.satucloudhosting.com/` — login admin, lalu dashboard admin.
 
-URL lama berawalan `/client` atau `/admin` akan diarahkan ke host baru untuk permintaan GET. Form POST lama tidak diteruskan lintas host.
+URL lama berawalan `/client` akan diarahkan ke host klien, sedangkan URL lama `/admin/...` akan diarahkan ke beranda publik di `APP_URL` agar halaman login admin tidak ditampilkan dari jalur lama. Pengalihan hanya berlaku untuk permintaan GET; form POST lama tidak diteruskan lintas host. Panel admin tetap tersedia di subdomain admin dan tetap harus dilindungi autentikasi yang kuat.

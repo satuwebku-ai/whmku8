@@ -10,11 +10,9 @@ class LegacyPortalRedirectController extends Controller
 {
     public function admin(Request $request, ?string $path = null): RedirectResponse
     {
-        return $this->redirectToPortal(
-            (string) config('portals.admin_host'),
-            $request,
-            $path,
-        );
+        $homeUrl = rtrim((string) config('app.url'), '/').'/';
+
+        return redirect()->away($homeUrl, 301);
     }
 
     public function client(Request $request, ?string $path = null): RedirectResponse

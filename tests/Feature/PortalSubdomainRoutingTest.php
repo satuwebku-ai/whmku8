@@ -29,10 +29,15 @@ class PortalSubdomainRoutingTest extends TestCase
             ->assertRedirect(route('admin.login'));
     }
 
-    public function test_legacy_portal_urls_redirect_to_the_new_host_and_path(): void
+    public function test_legacy_admin_urls_redirect_to_public_home_and_client_urls_redirect_to_the_new_host(): void
     {
+        config(['app.url' => 'https://satucloudhosting.com']);
+
+        $this->get('/admin/login')
+            ->assertRedirect('https://satucloudhosting.com/');
+
         $this->get('/admin/tickets?from=bookmark')
-            ->assertRedirect(route('admin.tickets').'?from=bookmark');
+            ->assertRedirect('https://satucloudhosting.com/');
 
         $this->get('/client/services')
             ->assertRedirect(route('client.services'));
