@@ -31,7 +31,7 @@ class CheckoutController extends Controller
     public function index(CartService $cart, CouponService $coupons): View|RedirectResponse
     {
         if ($cart->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Keranjang Anda masih kosong.');
+            return redirect()->route('client.cart')->with('error', 'Keranjang Anda masih kosong.');
         }
 
         return view('client.checkout.index', $this->checkoutData($cart, $coupons));
@@ -96,7 +96,7 @@ class CheckoutController extends Controller
     public function store(CartService $cart, CouponService $coupons): RedirectResponse
     {
         if ($cart->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Keranjang Anda masih kosong.');
+            return redirect()->route('client.cart')->with('error', 'Keranjang Anda masih kosong.');
         }
 
         $issues = $this->validateCart($cart);
@@ -189,7 +189,7 @@ class CheckoutController extends Controller
             // seluruh transaksi otomatis di-rollback (termasuk decrement
             // stok yang sempat terjadi), jadi aman diberi tahu ke klien
             // tanpa ada efek samping yang tertinggal.
-            return redirect()->route('cart.index')->with('error', $e->getMessage());
+            return redirect()->route('client.cart')->with('error', $e->getMessage());
         }
 
         foreach ($cart->items() as $item) {

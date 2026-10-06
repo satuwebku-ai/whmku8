@@ -164,6 +164,20 @@ Route::middleware('client')->group(function () {
         Route::get('ticket-attachment/{attachment}/file', 'attachmentFile')->name('ticket-attachments.file');
     });
 
+    // ── Toko & keranjang di area client — belanja tanpa ke situs publik ──
+    Route::controller(\App\Http\Controllers\Client\StoreController::class)->group(function () {
+        Route::get('store', 'index')->name('store');
+        Route::get('store/{category}', 'category')->name('store.category');
+        Route::get('store/{category}/{product}', 'product')->name('store.product');
+
+        Route::get('keranjang', 'cart')->name('cart');
+        Route::post('keranjang/tambah', 'addProduct')->name('cart.add');
+        Route::post('keranjang/siklus', 'updateCycle')->name('cart.cycle');
+        Route::post('keranjang/tahun', 'updateYears')->name('cart.years');
+        Route::post('keranjang/hapus', 'remove')->name('cart.remove');
+        Route::post('keranjang/kosongkan', 'clear')->name('cart.clear');
+    });
+
     // ── Checkout (Fase 7c) — mengubah keranjang jadi Order + Invoice ──
     Route::controller(CheckoutController::class)->group(function () {
         Route::get('checkout', 'index')->name('checkout');
