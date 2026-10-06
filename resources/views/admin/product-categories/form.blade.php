@@ -23,15 +23,15 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label small fw-medium text-dark">Jenis Produk di Kategori Ini</label>
+      <label class="form-label small fw-medium text-dark">Klasifikasi Kategori</label>
       <select name="type" class="form-select form-select-sm">
-        <option value="hosting" @selected(old('type', $category->type ?? 'hosting') === 'hosting')>Hosting (cPanel/WHM)</option>
+        <option value="hosting" @selected(old('type', $category->type ?? 'hosting') === 'hosting')>Non-VPS (Shared Hosting / layanan manual)</option>
         <option value="vps" @selected(old('type', $category->type) === 'vps')>VPS / Cloud Server</option>
       </select>
       @error('type') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       <p class="text-muted mt-1 mb-0" style="font-size:11px">
-        Menentukan isian yang muncul saat membuat produk di kategori ini, server mana yang boleh dipilih, dan awalan URL katalog (/hosting/... atau /vps/...).
-        Domain, Lisensi/SSL, dan Addon punya menu sendiri, bukan bagian kategori produk.
+        Menentukan aturan server dan awalan URL katalog: <code>/hosting/</code> untuk Shared Hosting serta layanan non-VPS seperti Dedicated Server, Remote Desktop, dan Radio Shoutcast; <code>/vps/</code> untuk produk VPS.
+        Untuk layanan non-VPS yang diproses manual, pilih jenis ini lalu kosongkan Server Tujuan saat membuat produk. Domain, Lisensi/SSL, dan Addon punya menu sendiri.
         @if ($category->exists && $category->products()->exists())
           Jenis hanya bisa diubah jika semua produk di kategori ini cocok dengan jenis barunya.
         @endif

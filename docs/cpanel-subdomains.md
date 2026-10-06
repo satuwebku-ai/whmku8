@@ -2,8 +2,6 @@
 
 Aplikasi tetap satu instalasi Laravel. Situs publik tetap di `satucloudhosting.com`, area klien menggunakan `member.satucloudhosting.com`, dan panel admin menggunakan `pengelola.satucloudhosting.com`.
 
-> **Penting — migration di paket ini adalah baseline untuk instalasi/database baru.** File migration susulan sudah digabung ke file `create_` dan beberapa backfill data lama dihilangkan. Jangan mengganti folder migration atau menjalankan `migrate:fresh` pada database production yang aktif; pertahankan riwayat migration production yang sudah tercatat.
-
 ## Pengaturan aplikasi
 
 Tambahkan atau sesuaikan nilai berikut di `.env` pada server. Jangan unggah file `.env` ke arsip distribusi.
