@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
@@ -281,17 +282,17 @@ class HostingAccountController extends Controller
 
     public function suspend(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'suspendAccount', 'suspended', 'Hosting account berhasil disuspend.');
+        return $this->panelAction($hostingAccount, 'suspendAccount', 'suspended', 'Hosting account berhasil disuspend.', $this->lifecycleInput(request(), 'suspend'));
     }
 
     public function unsuspend(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'unsuspendAccount', 'active', 'Hosting account berhasil diaktifkan kembali.');
+        return $this->panelAction($hostingAccount, 'unsuspendAccount', 'active', 'Hosting account berhasil diaktifkan kembali.', $this->lifecycleInput(request(), 'unsuspend'));
     }
 
     public function terminate(HostingAccount $hostingAccount): RedirectResponse
     {
-        return $this->panelAction($hostingAccount, 'terminateAccount', 'terminated', 'Hosting account berhasil di-terminate dari server.');
+        return $this->panelAction($hostingAccount, 'terminateAccount', 'terminated', 'Hosting account berhasil di-terminate dari server.', $this->lifecycleInput(request(), 'terminate'));
     }
 
     /**
@@ -317,6 +318,10 @@ class HostingAccountController extends Controller
         if (! $hostingAccount->serverModel || ! $hostingAccount->username) {
             $hostingAccount->update(['status' => 'terminated']);
             $hostingAccount->clearPendingRenewalInvoice();
+            $hostingAccount->lifecycleLogs()->create([
+                'admin_id' => auth('admin')->id(), 'event' => 'terminate', 'reason' => 'request',
+                'note' => $request->input('admin_note'), 'event_date' => now(), 'status' => 'success',
+            ]);
 
             return back()->with('success', 'Pembatalan disetujui. Karena akun ini manual, hentikan aksesnya secara manual juga di server bila perlu.');
         }
@@ -325,7 +330,8 @@ class HostingAccountController extends Controller
             $hostingAccount,
             'terminateAccount',
             'terminated',
-            'Pembatalan disetujui dan layanan berhasil dihentikan.'
+            'Pembatalan disetujui dan layanan berhasil dihentikan.',
+            ['reason' => 'request', 'note' => $request->input('admin_note')]
         );
     }
 
@@ -428,8 +434,45 @@ class HostingAccountController extends Controller
         return back()->with('success', 'Info akun (dengan password baru) berhasil dikirim ke email klien.');
     }
 
-    private function panelAction(HostingAccount $hostingAccount, string $method, string $newStatus, string $successMessage): RedirectResponse
+    /** Alasan yang diizinkan per jenis aksi (diagram: reason di suspend/unsuspend/terminate log). */
+    private const LIFECYCLE_REASONS = [
+        'suspend'   => ['overdue', 'request', 'abuse', 'other'],
+        'unsuspend' => ['payment', 'request', 'other'],
+        'terminate' => ['expired', 'request', 'abuse', 'other'],
+    ];
+
+    /** @return array{reason: ?string, note: ?string} */
+    private function lifecycleInput(Request $request, string $event): array
     {
+        $data = $request->validate([
+            'reason' => ['nullable', Rule::in(self::LIFECYCLE_REASONS[$event])],
+            'note'   => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return ['reason' => $data['reason'] ?? 'other', 'note' => $data['note'] ?? null];
+    }
+
+    /**
+     * @param array{reason?: ?string, note?: ?string} $lifecycle
+     */
+    private function panelAction(HostingAccount $hostingAccount, string $method, string $newStatus, string $successMessage, array $lifecycle = []): RedirectResponse
+    {
+        $event = ['suspendAccount' => 'suspend', 'unsuspendAccount' => 'unsuspend', 'terminateAccount' => 'terminate'][$method] ?? null;
+        $record = function (string $status, ?string $extra = null) use ($hostingAccount, $event, $lifecycle) {
+            if ($event === null) {
+                return;
+            }
+            $note = trim(implode(' — ', array_filter([$lifecycle['note'] ?? null, $extra])));
+            $hostingAccount->lifecycleLogs()->create([
+                'admin_id'   => auth('admin')->id(),
+                'event'      => $event,
+                'reason'     => $lifecycle['reason'] ?? 'other',
+                'note'       => $note !== '' ? $note : null,
+                'event_date' => now(),
+                'status'     => $status,
+            ]);
+        };
+
         if (! $hostingAccount->serverModel || ! $hostingAccount->username) {
             return back()->with('error', 'Akun ini tidak terhubung ke server panel (dibuat manual), jadi tidak bisa dikontrol dari sini. Ubah status lewat form Edit.');
         }
@@ -447,10 +490,13 @@ class HostingAccountController extends Controller
                 $hostingAccount->clearPendingRenewalInvoice();
             }
 
+            $record('success');
+
             return back()->with('success', $successMessage);
         }
 
         $hostingAccount->update(['provision_message' => $result['message']]);
+        $record('failed', $result['message']);
 
         return back()->with('error', 'Gagal menghubungi server: ' . $result['message']);
     }
@@ -499,11 +545,6 @@ class HostingAccountController extends Controller
 
         if ($invoiceItem->invoice->status !== 'paid') {
             return back()->with('error', 'Invoice terkait belum lunas — provisioning cuma bisa dipicu untuk invoice yang sudah dibayar.');
-        }
-
-        // "Aktifkan" pada akun semi-otomatis = menyetujui provisioning.
-        if ($hostingAccount->provision_status === 'awaiting_approval') {
-            $hostingAccount->update(['provision_status' => 'manual', 'provision_message' => 'Disetujui admin, provisioning dijalankan.']);
         }
 
         app(\App\Services\Provisioning\ProvisioningService::class)->provisionInvoice($invoiceItem->invoice);

@@ -12,8 +12,8 @@
 
   $menu = [
     ['label' => 'Dashboard',          'route' => 'client.dashboard',        'match' => 'client.dashboard*', 'icon' => 'bi-speedometer2'],
-    ['label' => 'Pesan Layanan Baru', 'route' => 'client.store',             'match' => 'client.store*',         'icon' => 'bi-cart-plus'],
-    ['label' => 'Keranjang',          'route' => 'client.cart',              'match' => 'client.cart*',            'icon' => 'bi-cart3', 'badge' => $cartCount],
+    ['label' => 'Pesan Layanan Baru', 'route' => 'catalog.index',           'match' => 'catalog.*',         'icon' => 'bi-cart-plus'],
+    ['label' => 'Keranjang',          'route' => 'cart.index',              'match' => 'cart.*',            'icon' => 'bi-cart3', 'badge' => $cartCount],
     ['label' => 'Layanan Saya',       'route' => 'client.services',         'match' => 'client.services*',  'icon' => 'bi-server'],
     ['label' => 'VPS Saya',           'route' => 'client.vps',              'match' => 'client.vps*',       'icon' => 'bi-hdd-rack'],
     ['label' => 'Domain Saya',        'route' => 'client.domains',          'match' => 'client.domains*',   'icon' => 'bi-globe2'],

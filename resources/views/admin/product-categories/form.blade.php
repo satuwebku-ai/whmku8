@@ -24,26 +24,14 @@
 
     <div class="mb-3">
       <label class="form-label small fw-medium text-dark">Jenis Produk di Kategori Ini</label>
-      @php
-        $curType   = old('type', $category->type ?? 'hosting');
-        $isCustom  = $curType === '__custom' || ! in_array($curType, ['hosting', 'vps'], true);
-        $customVal = old('type_custom', $curType === '__custom' ? '' : ($isCustom ? $curType : ''));
-      @endphp
-      <select name="type" id="typeSelect" class="form-select form-select-sm">
-        <option value="hosting" @selected(! $isCustom && $curType === 'hosting')>Hosting (cPanel/WHM)</option>
-        <option value="vps" @selected(! $isCustom && $curType === 'vps')>VPS / Cloud Server</option>
-        <option value="__custom" @selected($isCustom)>Lainnya — ketik manual…</option>
+      <select name="type" class="form-select form-select-sm">
+        <option value="hosting" @selected(old('type', $category->type ?? 'hosting') === 'hosting')>Hosting (cPanel/WHM)</option>
+        <option value="vps" @selected(old('type', $category->type) === 'vps')>VPS / Cloud Server</option>
       </select>
-      <input type="text" name="type_custom" id="typeCustom" value="{{ $customVal }}" list="customTypeList" maxlength="50"
-             class="form-control form-control-sm mt-2 {{ $isCustom ? '' : 'd-none' }}" placeholder="mis. Dedicated Server, Colocation" {{ $isCustom ? '' : 'disabled' }}>
-      <datalist id="customTypeList">
-        @foreach ($customTypes as $t) <option value="{{ $t }}"> @endforeach
-      </datalist>
       @error('type') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       <p class="text-muted mt-1 mb-0" style="font-size:11px">
         Menentukan isian yang muncul saat membuat produk di kategori ini, server mana yang boleh dipilih, dan awalan URL katalog (/hosting/... atau /vps/...).
         Domain, Lisensi/SSL, dan Addon punya menu sendiri, bukan bagian kategori produk.
-        <b>Jenis manual</b> dipakai sebagai label/pengelompokan; perilakunya sama seperti Hosting (URL <code>/hosting/…</code>, server non-cloud). Hanya <b>VPS</b> yang memakai server cloud.
         @if ($category->exists && $category->products()->exists())
           Jenis hanya bisa diubah jika semua produk di kategori ini cocok dengan jenis barunya.
         @endif
@@ -79,18 +67,6 @@
 
   <script @nonce>
     (function () {
-      const typeSel = document.getElementById('typeSelect');
-      const typeCustom = document.getElementById('typeCustom');
-      const syncType = () => {
-        const on = typeSel.value === '__custom';
-        typeCustom.classList.toggle('d-none', !on);
-        typeCustom.disabled = !on;
-        typeCustom.required = on;
-        if (on) typeCustom.focus();
-      };
-      typeSel.addEventListener('change', syncType);
-      typeCustom.required = typeSel.value === '__custom';
-
       const name = document.getElementById('nameInput');
       const slug = document.getElementById('slugInput');
 

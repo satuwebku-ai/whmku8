@@ -9,14 +9,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::table('mail_messages', function (Blueprint $table) {
+            $table->boolean('is_auto')->default(false)->after('attachments');
+        });
+
         Schema::create('mail_templates', function (Blueprint $table) {
             $table->id();
             $table->string('title', 120);
-            $table->string('category', 60)->nullable();
             $table->string('subject', 200)->nullable();
             $table->text('body');
-            $table->boolean('is_active')->default(true);
-            $table->boolean('use_for_ai')->default(false);
             $table->unsignedInteger('sort')->default(0);
             $table->timestamps();
         });
@@ -40,5 +41,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('mail_templates');
+        Schema::table('mail_messages', function (Blueprint $table) {
+            $table->dropColumn('is_auto');
+        });
     }
 };

@@ -16,12 +16,9 @@ return new class extends Migration
             $table->string('contact_email')->index();
             $table->string('contact_name')->nullable();
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('chat_conversation_id')->nullable()
-                ->constrained('chat_conversations')->nullOnDelete();
             $table->string('status', 20)->default('open')->index();   // open | closed
             $table->unsignedInteger('unread_count')->default(0);
             $table->timestamp('last_message_at')->nullable()->index();
-            $table->timestamp('idle_prompted_at')->nullable();
             $table->timestamps();
         });
 
@@ -37,7 +34,6 @@ return new class extends Migration
             $table->string('message_id')->nullable()->index();         // Message-ID tanpa <>
             $table->foreignId('admin_id')->nullable()->constrained()->nullOnDelete();
             $table->json('attachments')->nullable();                   // [{path,name,mime,size}]
-            $table->boolean('is_auto')->default(false);
             $table->timestamps();
         });
     }

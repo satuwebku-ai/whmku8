@@ -121,7 +121,7 @@
         @if ($account->provision_status !== 'provisioned')
           <div class="mt-3 pt-3 border-top small">
             <p class="text-muted mb-0" style="font-size:11px">STATUS PROVISIONING TERAKHIR</p>
-            <p class="mb-0 mt-1 {{ in_array($account->provision_status, ['manual', 'awaiting_approval'], true) ? 'text-muted' : 'text-danger' }}">
+            <p class="mb-0 mt-1 {{ $account->provision_status === 'manual' ? 'text-muted' : 'text-danger' }}">
               {{ $account->provision_message ?: ($account->provision_status === 'manual' ? '(belum pernah dicoba — masih menunggu pemicu otomatis atau diproses manual admin)' : '(tidak ada keterangan)') }}
             </p>
             <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
@@ -212,18 +212,30 @@
             @if ($account->status !== 'suspended' && $account->status !== 'terminated')
               <form method="POST" action="{{ route('admin.hosting-accounts.suspend', $account) }}" data-confirm="Suspend akun ini di server?" data-confirm-title="Suspend Layanan" data-confirm-style="warn" data-confirm-label="Ya, Suspend">
                 @csrf
+                <div class="d-flex gap-1 mb-1">
+                  <select name="reason" class="form-select form-select-sm" style="font-size:12px"><option value="overdue">Overdue</option><option value="request">Permintaan klien</option><option value="abuse">Pelanggaran/abuse</option><option value="other">Lainnya</option></select>
+                  <input type="text" name="note" maxlength="500" placeholder="Catatan (opsional)" class="form-control form-control-sm" style="font-size:12px">
+                </div>
                 <button type="submit" class="btn btn-outline-warning btn-sm w-100 text-start"><i class="fa-solid fa-pause" style="font-size:11px"></i> Suspend</button>
               </form>
             @endif
             @if ($account->status === 'suspended')
               <form method="POST" action="{{ route('admin.hosting-accounts.unsuspend', $account) }}">
                 @csrf
+                <div class="d-flex gap-1 mb-1">
+                  <select name="reason" class="form-select form-select-sm" style="font-size:12px"><option value="payment">Pembayaran diterima</option><option value="request">Permintaan klien</option><option value="other">Lainnya</option></select>
+                  <input type="text" name="note" maxlength="500" placeholder="Catatan (opsional)" class="form-control form-control-sm" style="font-size:12px">
+                </div>
                 <button type="submit" class="btn btn-primary btn-sm w-100 text-start"><i class="fa-solid fa-play" style="font-size:11px"></i> Unsuspend</button>
               </form>
             @endif
             @if ($account->status !== 'terminated')
               <form method="POST" action="{{ route('admin.hosting-accounts.terminate', $account) }}" data-confirm="Terminate akun ini? Akan DIHAPUS dari server dan tidak bisa dikembalikan." data-confirm-title="Hapus Data" data-confirm-style="danger" data-confirm-label="Ya, Hapus">
                 @csrf
+                <div class="d-flex gap-1 mb-1">
+                  <select name="reason" class="form-select form-select-sm" style="font-size:12px"><option value="expired">Masa aktif habis</option><option value="request">Permintaan klien</option><option value="abuse">Pelanggaran/abuse</option><option value="other">Lainnya</option></select>
+                  <input type="text" name="note" maxlength="500" placeholder="Catatan (opsional)" class="form-control form-control-sm" style="font-size:12px">
+                </div>
                 <button type="submit" class="btn btn-outline-danger btn-sm w-100 text-start"><i class="fa-solid fa-power-off" style="font-size:11px"></i> Terminate</button>
               </form>
             @endif
@@ -235,6 +247,39 @@
           </a>
         </div>
       </div>
+
+      @php($provJobs = $account->provisioningJobs()->latest('id')->limit(10)->get())
+      @if ($provJobs->isNotEmpty())
+        <div class="card border rounded-4 p-4 mb-3">
+          <h2 class="small fw-bold text-dark mb-2">Riwayat Provisioning</h2>
+          <ul class="list-unstyled mb-0" style="font-size:12px">
+            @foreach ($provJobs as $job)
+              <li class="py-1 border-bottom">
+                <span class="badge {{ ['success' => 'text-bg-success', 'failed' => 'text-bg-danger'][$job->status] ?? 'text-bg-info' }}">{{ $job->status }}</span>
+                <span class="text-muted">{{ $job->started_at?->format('d M Y H:i') }}@if ($job->finished_at) → {{ $job->finished_at->format('H:i:s') }}@endif</span>
+                @if ($job->message)<div class="text-muted">{{ $job->message }}</div>@endif
+              </li>
+            @endforeach
+          </ul>
+        </div>
+      @endif
+
+      @php($lifecycle = $account->lifecycleLogs()->latest('event_date')->limit(10)->get())
+      @if ($lifecycle->isNotEmpty())
+        <div class="card border rounded-4 p-4 mb-3">
+          <h2 class="small fw-bold text-dark mb-2">Riwayat Suspend / Unsuspend / Terminate</h2>
+          <ul class="list-unstyled mb-0" style="font-size:12px">
+            @foreach ($lifecycle as $log)
+              <li class="py-1 border-bottom">
+                <span class="fw-medium text-capitalize">{{ $log->event }}</span>
+                <span class="badge {{ $log->status === 'success' ? 'text-bg-success' : 'text-bg-danger' }}">{{ $log->status }}</span>
+                <span class="text-muted">· {{ $log->reason }} · {{ $log->event_date?->format('d M Y H:i') }}</span>
+                @if ($log->note)<div class="text-muted">{{ $log->note }}</div>@endif
+              </li>
+            @endforeach
+          </ul>
+        </div>
+      @endif
 
       @if ($account->serverModel && $account->username)
         <div class="card border rounded-4 p-4">

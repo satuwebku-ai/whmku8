@@ -3,81 +3,81 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\ServerGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ServerGroupController extends Controller
 {
     public function index(): View
     {
-        $groups = ServerGroup::withCount('servers')->orderBy('sort_order')->orderBy('name')->paginate(15);
+        $groups = ServerGroup::withCount('servers')->orderBy('priority')->orderBy('name')->paginate(15);
 
         return view('admin.server-groups.index', compact('groups'));
     }
 
     public function create(): View
     {
-        return view('admin.server-groups.form', ['group' => new ServerGroup()]);
+        return view('admin.server-groups.form', ['group' => new ServerGroup(['priority' => 100, 'is_active' => true])]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
-        $data['is_active'] = $request->boolean('is_active', true);
+        $data['slug'] = $this->uniqueSlug($data['name']);
+        ServerGroup::create($data);
 
-        $group = ServerGroup::create($data);
-        $this->audit('Server group dibuat', $group->name, 'info');
-
-        return redirect()->route('admin.server-groups.index')->with('success', 'Server group berhasil dibuat.');
+        return redirect()->route('admin.server-groups.index')->with('success', 'Server group berhasil ditambahkan.');
     }
 
-    public function edit(ServerGroup $serverGroup): View
+    public function edit(ServerGroup $server_group): View
     {
-        return view('admin.server-groups.form', ['group' => $serverGroup]);
+        return view('admin.server-groups.form', ['group' => $server_group]);
     }
 
-    public function update(Request $request, ServerGroup $serverGroup): RedirectResponse
+    public function update(Request $request, ServerGroup $server_group): RedirectResponse
     {
-        $data = $this->validated($request, $serverGroup->id);
-        $data['is_active'] = $request->boolean('is_active');
-
-        $serverGroup->update($data);
-        $this->audit('Server group diubah', $serverGroup->name, 'info');
+        $server_group->update($this->validated($request));
 
         return redirect()->route('admin.server-groups.index')->with('success', 'Server group berhasil diperbarui.');
     }
 
-    public function destroy(ServerGroup $serverGroup): RedirectResponse
+    public function destroy(ServerGroup $server_group): RedirectResponse
     {
-        if ($serverGroup->servers()->exists()) {
-            return back()->with('error', 'Grup tidak bisa dihapus karena masih berisi server. Pindahkan servernya ke grup lain dulu.');
+        if ($server_group->servers()->exists()) {
+            return back()->with('error', 'Server group tidak bisa dihapus karena masih berisi server. Pindahkan server-nya dulu.');
         }
 
-        $name = $serverGroup->name;
-        $serverGroup->delete();
-        $this->audit('Server group dihapus', $name, 'warning');
+        $server_group->delete();
 
         return redirect()->route('admin.server-groups.index')->with('success', 'Server group berhasil dihapus.');
     }
 
-    private function audit(string $title, string $detail, string $level): void
+    private function validated(Request $request): array
     {
-        $who = auth('admin')->user()->name ?? 'admin';
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'location'    => ['nullable', 'string', 'max:100'],
+            'priority'    => ['required', 'integer', 'min:1', 'max:9999'],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $data['is_active'] = $request->boolean('is_active');
 
-        ActivityLog::record('service', $title, "{$detail}. Oleh {$who}.", null, $level);
+        return $data;
     }
 
-    private function validated(Request $request, ?int $ignoreId = null): array
+    private function uniqueSlug(string $name): string
     {
-        return $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255', 'unique:server_groups,slug' . ($ignoreId ? ",{$ignoreId}" : '')],
-            'description' => ['nullable', 'string', 'max:500'],
-            'sort_order'  => ['nullable', 'integer', 'min:0'],
-            'is_active'   => ['nullable', 'boolean'],
-        ]);
+        $base = Str::slug($name) ?: 'group';
+        $slug = $base;
+        $i = 2;
+        while (ServerGroup::where('slug', $slug)->exists()) {
+            $slug = $base . '-' . $i++;
+        }
+
+        return $slug;
     }
 }

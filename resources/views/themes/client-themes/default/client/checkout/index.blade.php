@@ -3,7 +3,7 @@
 
 @section('content')
 
-  <a href="{{ route('client.cart') }}" class="text-decoration-none text-muted" style="font-size:12px">&larr; Kembali ke Keranjang</a>
+  <a href="{{ route('cart.index') }}" class="text-decoration-none text-muted" style="font-size:12px">&larr; Kembali ke Keranjang</a>
 
   <h1 class="h4 fw-bold text-dark mt-2 mb-4">Konfirmasi Pesanan</h1>
 
@@ -15,7 +15,7 @@
           <li style="margin-bottom:.25rem">{{ $issue }}</li>
         @endforeach
       </ul>
-      <a href="{{ route('client.cart') }}" class="btn btn-outline-danger btn-sm mt-3">Perbaiki di Keranjang</a>
+      <a href="{{ route('cart.index') }}" class="btn btn-outline-danger btn-sm mt-3">Perbaiki di Keranjang</a>
     </div>
   @endif
 

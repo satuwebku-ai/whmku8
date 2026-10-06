@@ -28,7 +28,6 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\RegistrarController;
 use App\Http\Controllers\Admin\ServerController;
-use App\Http\Controllers\Admin\ServerGroupController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\TicketController;
 use App\Http\Controllers\Admin\TldController;
@@ -241,8 +240,10 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::post('vps/{vps}/power', [\App\Http\Controllers\Admin\VpsController::class, 'power'])->name('vps.power');
         Route::post('vps/{vps}/attach-ip', [\App\Http\Controllers\Admin\VpsController::class, 'attachIp'])->name('vps.attach-ip');
         Route::delete('vps/{vps}', [\App\Http\Controllers\Admin\VpsController::class, 'destroy'])->name('vps.destroy');
-        Route::resource('server-groups', ServerGroupController::class)->except('show');
         Route::resource('servers', ServerController::class)->except('show');
+        Route::post('server-packages/sync', [\App\Http\Controllers\Admin\ServerPackageController::class, 'sync'])->name('server-packages.sync');
+        Route::resource('server-packages', \App\Http\Controllers\Admin\ServerPackageController::class)->except('show');
+        Route::resource('server-groups', \App\Http\Controllers\Admin\ServerGroupController::class)->except('show');
         Route::post('servers/{server}/test-connection', [ServerController::class, 'testConnection'])->name('servers.test-connection');
         Route::post('servers/{server}/login-whm', [ServerController::class, 'loginWhm'])->name('servers.login-whm');
         Route::get('servers/{server}/branding', [ServerController::class, 'branding'])->name('servers.branding');
@@ -322,7 +323,6 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::resource('addons', \App\Http\Controllers\Admin\AddonController::class)->except('show');
         Route::post('addon/status', [\App\Http\Controllers\Admin\AddonController::class, 'status'])->name('addon.status');
         Route::post('addons/{addon}/sync', [\App\Http\Controllers\Admin\AddonController::class, 'sync'])->name('addons.sync');
-        Route::get('products/server-packages', [ProductController::class, 'serverPackages'])->name('products.server-packages');
         Route::post('products/vps-estimate', [ProductController::class, 'vpsEstimate'])->name('products.vps-estimate');
         Route::resource('products', ProductController::class)->except('show');
         Route::post('product/status', [ProductController::class, 'status'])->name('product.status');

@@ -32,10 +32,9 @@ return new class extends Migration
             // Membedakan percakapan dari widget web vs WhatsApp asli --
             // keduanya memakai tabel yang SAMA supaya admin, AiChatService,
             // dan seluruh UI kelola chat yang sudah ada bisa dipakai ulang.
-            $table->string('channel', 20)->default('web');
+            $table->enum('channel', ['web', 'whatsapp'])->default('web');
 
             $table->timestamp('last_message_at')->nullable();
-            $table->timestamp('idle_prompted_at')->nullable();
             $table->unsignedInteger('unread_for_admin')->default(0);
             $table->unsignedInteger('unread_for_user')->default(0);
 
@@ -55,7 +54,6 @@ return new class extends Migration
             // user  = pengunjung atau klien
             // admin = staf
             $table->enum('sender', ['bot', 'user', 'admin'])->default('user');
-            $table->string('kind', 30)->nullable();
             $table->foreignId('admin_id')->nullable()->constrained('admins')->nullOnDelete();
 
             $table->text('message')->nullable();

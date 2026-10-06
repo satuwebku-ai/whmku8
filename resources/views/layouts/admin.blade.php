@@ -117,6 +117,7 @@
             ['label' => 'Infrastruktur', 'icon' => 'M4 4h16v6H4zM4 14h16v6H4zM8 8h.01M8 18h.01', 'module' => 'infrastructure', 'children' => [
               ['label' => 'Server',      'route' => 'admin.servers.index', 'match' => ['admin.servers*']],
               ['label' => 'Server Group', 'route' => 'admin.server-groups.index', 'match' => ['admin.server-groups*']],
+              ['label' => 'Server Package', 'route' => 'admin.server-packages.index', 'match' => ['admin.server-packages*']],
               ['label' => 'Layanan VPS', 'route' => 'admin.vps', 'match' => ['admin.vps*']],
               ['label' => 'Backup',      'route' => 'admin.backups.index', 'match' => ['admin.backups.*']],
               ['label' => 'Konsol Web',  'route' => 'admin.console.index', 'match' => ['admin.console.*']],

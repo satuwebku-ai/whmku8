@@ -8,7 +8,6 @@ use App\Models\ProductGroup;
 use App\Models\Server;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProductCategoryController extends Controller
@@ -22,7 +21,7 @@ class ProductCategoryController extends Controller
 
     public function create(): View
     {
-        return view('admin.product-categories.form', ['category' => new ProductGroup(), 'customTypes' => ProductGroup::customTypeSuggestions()]);
+        return view('admin.product-categories.form', ['category' => new ProductGroup()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -39,7 +38,7 @@ class ProductCategoryController extends Controller
 
     public function edit(ProductGroup $productCategory): View
     {
-        return view('admin.product-categories.form', ['category' => $productCategory, 'customTypes' => ProductGroup::customTypeSuggestions()]);
+        return view('admin.product-categories.form', ['category' => $productCategory]);
     }
 
     public function update(Request $request, ProductGroup $productCategory): RedirectResponse
@@ -52,7 +51,7 @@ class ProductCategoryController extends Controller
         // dicek ulang oleh ProductController, jadi tanpa guard ini produk
         // hosting bisa tiba-tiba "berubah" jadi produk VPS tanpa server
         // cloud (atau sebaliknya) dan nyasar di katalog yang salah.
-        if (($data['type'] === 'vps') !== (($productCategory->type ?? 'hosting') === 'vps')) {
+        if ($data['type'] !== ($productCategory->type ?? 'hosting')) {
             $conflict = $this->typeChangeConflict($productCategory, $data['type']);
 
             if ($conflict) {
@@ -123,23 +122,14 @@ class ProductCategoryController extends Controller
 
     private function validated(Request $request, ?int $ignoreId = null): array
     {
-        // Jenis Produk: pilih bawaan (hosting/vps) atau ketik manual lewat
-        // opsi "__custom" + isian type_custom (disimpan dalam bentuk slug).
-        if ($request->input('type') === '__custom') {
-            $request->merge(['type' => Str::slug((string) $request->input('type_custom'))]);
-        }
-
         return $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'type'        => ['required', 'string', 'max:50', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
+            'type'        => ['required', 'in:hosting,vps'],
             'slug'        => ['nullable', 'string', 'max:255', 'unique:product_groups,slug' . ($ignoreId ? ",{$ignoreId}" : '')],
             'description' => ['nullable', 'string', 'max:500'],
             'icon'        => ['nullable', 'string', 'max:50'],
             'sort_order'  => ['nullable', 'integer', 'min:0'],
             'is_active'   => ['nullable', 'boolean'],
-        ], [
-            'type.required' => 'Pilih Jenis Produk atau ketik jenis manual.',
-            'type.regex'    => 'Jenis hanya boleh huruf, angka, strip, dan underscore.',
         ]);
     }
 }

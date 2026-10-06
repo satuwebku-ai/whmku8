@@ -12,11 +12,6 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            // Alamat baru ditampung sampai kode verifikasi dikonfirmasi.
-            $table->string('pending_email')->nullable();
-            $table->string('pending_email_code_hash')->nullable();
-            $table->timestamp('pending_email_expires_at')->nullable();
-            $table->unsignedTinyInteger('pending_email_attempts')->default(0);
             $table->string('phone')->nullable();
             // Nomor WhatsApp dipisah dari kolom phone: nomor telepon kantor
             // belum tentu bisa menerima WhatsApp.
@@ -39,9 +34,6 @@ return new class extends Migration
             $table->string('postal_code')->nullable();
             $table->string('country')->default('Indonesia');
             $table->string('password')->nullable(); // untuk nanti login area client (belum aktif di Fase 2)
-            $table->boolean('password_otp_enabled')->default(false);
-            // Akun Google baru dapat mengubah nilai ini saat proses login.
-            $table->boolean('password_set_by_user')->default(true);
             // Nullable & unique: diisi hanya untuk akun yang pernah login
             // lewat Google. Klien yang daftar dengan email+password biasa
             // tetap punya nilai null di sini selamanya.

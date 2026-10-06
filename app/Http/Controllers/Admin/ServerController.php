@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Server;
-use App\Models\ServerGroup;
-use Illuminate\Support\Str;
 use App\Services\Hosting\HostingPanelFactory;
 use App\Services\Vps\VpsProviderFactory;
 use Illuminate\Http\RedirectResponse;
@@ -15,20 +13,16 @@ use Illuminate\View\View;
 
 class ServerController extends Controller
 {
-    public function index(Request $request): View
+    public function index(): View
     {
-        $servers = Server::with('group')->withCount('hostingAccounts')
-            ->when($request->filled('group'), fn ($q) => $q->where('server_group_id', $request->integer('group')))
-            ->latest()->paginate(10)->withQueryString();
+        $servers = Server::withCount('hostingAccounts')->latest()->paginate(10);
 
-        $groups = ServerGroup::orderBy('sort_order')->orderBy('name')->get();
-
-        return view('admin.servers.index', compact('servers', 'groups'));
+        return view('admin.servers.index', compact('servers'));
     }
 
     public function create(): View
     {
-        return view('admin.servers.form', ['server' => new Server(), 'groups' => $this->groups()]);
+        return view('admin.servers.form', ['server' => new Server()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -36,9 +30,9 @@ class ServerController extends Controller
         $data = $this->validated($request);
         $data['hostname'] = $data['hostname'] ?? '';
         $data['api_username'] = $data['api_username'] ?? '';
-        $data['api_token'] = $data['api_token'] ?? '';
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['status'] = $data['status'] ?? 'active';
 
         Server::create($data);
 
@@ -47,7 +41,7 @@ class ServerController extends Controller
 
     public function edit(Server $server): View
     {
-        return view('admin.servers.form', ['server' => $server, 'groups' => $this->groups()]);
+        return view('admin.servers.form', compact('server'));
     }
 
     public function update(Request $request, Server $server): RedirectResponse
@@ -57,6 +51,7 @@ class ServerController extends Controller
         $data['api_username'] = $data['api_username'] ?? '';
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active');
+        $data['status'] = $data['status'] ?? 'active';
 
         // Kalau field token dikosongkan saat edit, jangan timpa token yang sudah tersimpan.
         if (empty($data['api_token'])) {
@@ -81,10 +76,6 @@ class ServerController extends Controller
 
     public function testConnection(Server $server): RedirectResponse
     {
-        if ($server->isCustomPanel()) {
-            return back()->with('error', 'Panel "' . $server->panelLabel() . '" diinput manual dan belum punya adapter koneksi otomatis.');
-        }
-
         $result = $server->isCloud()
             ? VpsProviderFactory::make($server)->testConnection()
             : HostingPanelFactory::make($server)->testConnection();
@@ -393,35 +384,8 @@ class ServerController extends Controller
         return back()->with('success', 'Harga modal berhasil disegarkan dari ' . $server->vpsLabel() . '.' . $note);
     }
 
-    private function groups()
-    {
-        return ServerGroup::orderBy('sort_order')->orderBy('name')->get();
-    }
-
-    /**
-     * Terjemahkan isian "pilih atau ketik manual" jadi nilai final:
-     *  - Jenis Panel: panel = "__custom" -> pakai teks di panel_custom (di-slug).
-     *  - Server Group: server_group_id = "__new" -> cari/buat grup bernama server_group_new.
-     */
-    private function resolveManualInputs(Request $request): void
-    {
-        if ($request->input('panel') === '__custom') {
-            $request->merge(['panel' => Str::slug((string) $request->input('panel_custom'))]);
-        }
-
-        if ($request->input('server_group_id') === '__new') {
-            $name = trim((string) $request->input('server_group_new'));
-            $request->validate(['server_group_new' => ['required', 'string', 'max:255']], [
-                'server_group_new.required' => 'Ketik nama server group baru.',
-            ]);
-            $request->merge(['server_group_id' => ServerGroup::findOrCreateByName($name)->id]);
-        }
-    }
-
     private function validated(Request $request, bool $updating = false): array
     {
-        $this->resolveManualInputs($request);
-
         // Jenis Panel "vps" = server cloud: provider-nya dipilih di
         // "VPS Provider", dan field yang wajib mengikuti profil provider itu
         // di config/vps_providers.php (mis. IDCloudHost: hostname = slug
@@ -430,24 +394,23 @@ class ServerController extends Controller
         // tetap wajib Hostname, Port, dan API Username.
         $isVps = $request->input('panel') === 'vps';
         $fields = $isVps ? (array) config('vps_providers.' . $request->input('vps_provider') . '.fields', []) : [];
-        // Panel kustom (diketik manual): hanya Hostname yang wajib; username,
-        // token, dan port opsional karena belum ada adapter-nya.
-        $isCustom = ! in_array($request->input('panel'), ['cpanel', 'directadmin', 'plesk', 'vps'], true);
-        $required = fn (string $field) => $isVps ? (bool) ($fields[$field]['required'] ?? false) : ($isCustom ? $field === 'hostname' : true);
+        $required = fn (string $field) => $isVps ? (bool) ($fields[$field]['required'] ?? false) : true;
 
         $data = $request->validate([
             'name'         => ['required', 'string', 'max:255'],
             'hostname'     => [$required('hostname') ? 'required' : 'nullable', 'string', 'max:255'],
             'ns1'          => ['nullable', 'string', 'max:255'],
             'ns2'          => ['nullable', 'string', 'max:255'],
-            'port'         => [$isVps || $isCustom ? 'nullable' : 'required', 'integer', 'min:1', 'max:65535'],
-            'panel'        => ['required', 'string', 'max:50', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
-            'server_group_id' => ['required', 'exists:server_groups,id'],
+            'port'         => [$isVps ? 'nullable' : 'required', 'integer', 'min:1', 'max:65535'],
+            'panel'        => ['required', Rule::in(['cpanel', 'directadmin', 'plesk', 'vps'])],
             'vps_provider' => [Rule::requiredIf($isVps), 'nullable', 'string', Rule::in(array_keys(config('vps_providers', [])))],
             'api_username' => [$required('api_username') ? 'required' : 'nullable', 'string', 'max:100'],
-            'api_token'    => [$updating || $isCustom ? 'nullable' : 'required', 'string'],
+            'api_token'    => [$updating ? 'nullable' : 'required', 'string'],
             'verify_ssl'   => ['nullable', 'boolean'],
             'max_accounts' => ['nullable', 'integer', 'min:1'],
+            'server_group_id' => ['nullable', 'integer', 'exists:server_groups,id'],
+            'ip_address'   => ['nullable', 'ip'],
+            'status'       => ['nullable', Rule::in(['active', 'maintenance'])],
             'price_per_vcpu_hour' => ['nullable', 'numeric', 'min:0'],
             'price_per_ram_gb_hour' => ['nullable', 'numeric', 'min:0'],
             'price_per_storage_gb_hour' => ['nullable', 'numeric', 'min:0'],
@@ -459,16 +422,9 @@ class ServerController extends Controller
             'cost_fx_rate' => ['nullable', 'numeric', 'min:0'],
             'is_active'    => ['nullable', 'boolean'],
         ], [
-            'server_group_id.required' => 'Pilih Server Group atau ketik nama grup baru.',
-            'panel.required'        => 'Pilih Jenis Panel atau ketik nama panel manual.',
-            'panel.regex'           => 'Nama panel hanya boleh huruf, angka, strip, dan underscore.',
             'vps_provider.required' => 'Pilih VPS Provider dulu.',
             'vps_provider.in'       => 'VPS Provider tidak dikenali.',
         ]);
-
-        if (! $isVps && blank($data['port'] ?? null)) {
-            unset($data['port']);
-        }
 
         if ($isVps) {
             // Nameserver & port tidak berlaku untuk server VPS. Port tidak

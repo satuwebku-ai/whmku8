@@ -8,36 +8,17 @@ use App\Http\Controllers\Site\PremiumDomainController;
 use App\Http\Controllers\Site\PromoController;
 use App\Http\Controllers\Site\ChatController as SiteChatController;
 use App\Http\Controllers\Site\PageController as SitePageController;
-use App\Http\Controllers\Site\LegacyPortalRedirectController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
     ->middleware('throttle:60,1')
     ->name('csp-report');
 
-// Panel klien dan admin memakai host terpisah; nama route internal
-// (client.* / admin.*) tetap sama, tetapi tidak lagi memakai prefix URL.
-Route::domain(config('portals.admin_host'))
-    ->name('admin.')
-    ->group(base_path('routes/admin.php'));
-
-Route::domain(config('portals.client_host'))
-    ->name('client.')
-    ->group(base_path('routes/client.php'));
-
-// Alamat portal lama tetap berfungsi sebagai pengalihan GET ke subdomain
-// yang benar. POST tidak diteruskan agar data formulir/login tidak dipindah
-// lintas host oleh pengalihan.
-Route::get('admin/{path?}', [LegacyPortalRedirectController::class, 'admin'])
-    ->where('path', '.*')
-    ->name('legacy.admin');
-
-Route::get('client/{path?}', [LegacyPortalRedirectController::class, 'client'])
-    ->where('path', '.*')
-    ->name('legacy.client');
-
-// Situs publik tetap memakai root domain utama.
 Route::get('/', [CatalogController::class, 'homeBootstrap'])->name('home');
+
+Route::prefix('admin')->name('admin.')->group(base_path('routes/admin.php'));
+
+Route::prefix('client')->name('client.')->group(base_path('routes/client.php'));
 
 // Logo, favicon, gambar banner — dilayani lewat Laravel (bukan file
 // statis), supaya kebal terhadap perbedaan folder repository vs folder
@@ -187,9 +168,11 @@ Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'fini
 | didaftarkan lebih awal, ia akan "merebut" alamat yang seharusnya milik
 | route lain seperti /hosting atau /keranjang.
 |
-| Route portal klien dan admin berada di host masing-masing dan sudah
-| didaftarkan di atas. Pengalihan URL lama /client/... dan /admin/... juga
-| berada di atas catch-all ini agar alamat lama tetap menuju portal benar.
+| Route multi-segmen (mis. /admin/dashboard, /client/invoice/1) otomatis
+| aman — {slug} tanpa akhiran khusus tidak pernah cocok dengan path yang
+| mengandung tanda "/". Rute tunggal seperti /admin dan /client sendiri
+| sudah lebih dulu terdaftar di atas (lewat admin.php/client.php), jadi
+| tetap diproses lebih dulu sebelum baris ini dicapai.
 |
 | Sebagai lapis pengaman kedua, CmsPage::RESERVED_SLUGS mencegah slug baru
 | dibuat dengan nama yang bisa bentrok sejak awal — lihat app/Models/Page.php.

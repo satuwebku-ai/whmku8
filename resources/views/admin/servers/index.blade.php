@@ -9,20 +9,9 @@
       <h1 class="h4 fw-bold text-dark mb-1">Server</h1>
       <p class="small text-muted mb-0">Kelola server cPanel/WHM, DirectAdmin, Plesk, dan provider VM/VPS yang terhubung.</p>
     </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-    <form method="GET" class="d-flex gap-2">
-      <select name="group" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:11rem">
-        <option value="">Semua Grup</option>
-        @foreach ($groups as $g)
-          <option value="{{ $g->id }}" @selected((int) request('group') === $g->id)>{{ $g->name }}</option>
-        @endforeach
-      </select>
-    </form>
-    <a href="{{ route('admin.server-groups.index') }}" class="btn btn-outline-secondary btn-sm">Kelola Grup</a>
     <a href="{{ route('admin.servers.create') }}" class="btn btn-primary">
       <i class="fa-solid fa-plus" style="font-size:12px"></i> Tambah Server
     </a>
-    </div>
   </div>
 
   <div class="card border rounded-4 overflow-hidden">
@@ -32,7 +21,6 @@
           <tr class="small text-uppercase text-muted" style="background:#f8fafc">
             <th class="px-4 py-3">Nama</th>
             <th class="py-3">Hostname</th>
-            <th class="py-3">Grup</th>
             <th class="py-3">Panel</th>
             <th class="text-center py-3">Akun</th>
             <th class="py-3">Cek Terakhir</th>
@@ -51,12 +39,11 @@
                   {{ $server->hostname . ':' . $server->port }}
                 @endif
               </td>
-              <td class="text-muted py-3">{{ $server->group?->name ?? '—' }}</td>
               <td class="text-muted text-capitalize py-3">
                 @if ($server->isCloud())
                   VM / VPS · {{ $server->vpsLabel() }}
                 @else
-                  {{ $server->panelLabel() }}
+                  {{ $server->panel === 'cpanel' ? 'cPanel / WHM' : $server->panel }}
                 @endif
               </td>
               <td class="text-center text-muted py-3">{{ $server->hosting_accounts_count }}</td>

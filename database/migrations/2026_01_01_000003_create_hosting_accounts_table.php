@@ -61,9 +61,6 @@ return new class extends Migration
 
             $table->string('provision_status')->default('manual'); // manual, provisioned, failed
             $table->text('provision_message')->nullable(); // pesan sukses/error terakhir dari API panel
-            $table->text('panel_suspend_error')->nullable();
-            $table->timestamp('credentials_sent_at')->nullable();
-            $table->timestamp('credentials_email_failed_at')->nullable();
             $table->timestamp('provisioning_started_at')->nullable();
             $table->timestamp('provisioning_finished_at')->nullable();
             $table->unsignedInteger('provisioning_attempts')->default(0);

@@ -9,7 +9,7 @@ use ZipArchive;
 
 class BackupApplication extends Command
 {
-    protected $signature = 'lumora:backup {--keep= : Berapa cadangan terakhir yang disimpan (kosongkan untuk pakai pengaturan admin)} {--force : Tetap buat cadangan walau "Backup otomatis" dimatikan di Pengaturan (dipakai cadangan pengaman sebelum restore)}';
+    protected $signature = 'lumora:backup {--keep= : Berapa cadangan terakhir yang disimpan (kosongkan untuk pakai pengaturan admin)}';
 
     protected $description = 'Backup database + file yang diupload (bukti bayar, dokumen domain, logo) jadi satu file ZIP.';
 
@@ -26,7 +26,7 @@ class BackupApplication extends Command
         // lumora:cron, toggle ini jadi diam-diam terabaikan (backup
         // tetap jalan walau admin mematikannya). Dicek langsung di sini
         // supaya berlaku apa pun cara command ini dipicu.
-        if (! $this->option('force') && Setting::get('backup_enabled', '1') !== '1') {
+        if (Setting::get('backup_enabled', '1') !== '1') {
             $this->info('Backup otomatis sedang dimatikan di Pengaturan — dilewati.');
 
             return self::SUCCESS;

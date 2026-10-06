@@ -293,6 +293,52 @@ class HostingAccount extends Model
         return $this->hasMany(Order::class);
     }
 
+    protected static function booted(): void
+    {
+        // Catat riwayat provisioning per percobaan setiap provision_status berubah.
+        static::updated(function (self $account) {
+            if (! $account->wasChanged('provision_status')) {
+                return;
+            }
+            $status = match ($account->provision_status) {
+                'provisioning' => 'running',
+                'provisioned'  => 'success',
+                'failed'       => 'failed',
+                default        => null,
+            };
+            if ($status === null) {
+                return;
+            }
+
+            if ($status === 'running') {
+                $account->provisioningJobs()->create([
+                    'order_id'   => $account->orders()->latest('id')->value('id'),
+                    'server_id'  => $account->server_id,
+                    'product_id' => $account->product_id,
+                    'status'     => 'running',
+                    'message'    => $account->provision_message,
+                    'started_at' => now(),
+                ]);
+                return;
+            }
+
+            $job = $account->provisioningJobs()->where('status', 'running')->latest('id')->first();
+            if ($job) {
+                $job->update(['status' => $status, 'message' => $account->provision_message, 'finished_at' => now()]);
+            }
+        });
+    }
+
+    public function provisioningJobs(): HasMany
+    {
+        return $this->hasMany(ProvisioningJob::class);
+    }
+
+    public function lifecycleLogs(): HasMany
+    {
+        return $this->hasMany(ServiceLifecycleLog::class);
+    }
+
     public function logs(): HasMany
     {
         return $this->hasMany(HostingAccountLog::class);

@@ -158,10 +158,14 @@ class ProvisioningService
                 return null;
             }
 
-            // Mode semi-otomatis: server sudah dipilih, tapi akun baru dibuat
-            // setelah admin menekan "Aktifkan" (retryProvisioning).
-            if ($account->provision_status === 'awaiting_approval') {
-                return null;
+            // Diagram: Product -> Server Group -> Server. Bila akun belum punya
+            // server, pilih otomatis dari server group produk.
+            if (! $account->server_id && $order->product) {
+                $picked = app(ServerSelector::class)->forProduct($order->product);
+                if ($picked) {
+                    $account->update(['server_id' => $picked->id, 'server' => $picked->name, 'panel' => $picked->panel]);
+                    $account->unsetRelation('serverModel');
+                }
             }
 
             if (! $account->server_id) {

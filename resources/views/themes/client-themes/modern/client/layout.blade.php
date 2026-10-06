@@ -9,8 +9,8 @@
 
   $menu = [
     ['label' => 'Dashboard', 'route' => 'client.dashboard', 'match' => 'client.dashboard*', 'icon' => 'fa-gauge'],
-    ['label' => 'Pesan Layanan Baru', 'route' => 'client.store', 'match' => 'client.store*', 'icon' => 'fa-cart-plus'],
-    ['label' => 'Keranjang', 'route' => 'client.cart', 'match' => 'client.cart*', 'icon' => 'fa-cart-shopping'],
+    ['label' => 'Pesan Layanan Baru', 'route' => 'catalog.index', 'match' => 'catalog.*', 'icon' => 'fa-cart-plus'],
+    ['label' => 'Keranjang', 'route' => 'cart.index', 'match' => 'cart.*', 'icon' => 'fa-cart-shopping'],
     ['label' => 'Layanan Saya', 'route' => 'client.services', 'match' => 'client.services*', 'icon' => 'fa-server'],
     ['label' => 'VPS Saya', 'route' => 'client.vps', 'match' => 'client.vps*', 'icon' => 'fa-cloud'],
     ['label' => 'Domain Saya', 'route' => 'client.domains', 'match' => 'client.domains*', 'icon' => 'fa-globe'],
@@ -163,10 +163,10 @@
       </a>
 
       <div class="d-flex align-items-center gap-3">
-        <a href="{{ route('client.store') }}" class="d-none d-sm-flex align-items-center gap-2 text-decoration-none" style="color:#52525b;font-size:14px;font-weight:500">
+        <a href="{{ route('catalog.index') }}" class="d-none d-sm-flex align-items-center gap-2 text-decoration-none" style="color:#52525b;font-size:14px;font-weight:500">
           <i class="fa-solid fa-cart-plus"></i> Pesan Layanan Baru
         </a>
-        <a href="{{ route('client.cart') }}" class="position-relative d-flex align-items-center justify-content-center text-decoration-none rounded-3" style="width:36px;height:36px;color:#52525b">
+        <a href="{{ route('cart.index') }}" class="position-relative d-flex align-items-center justify-content-center text-decoration-none rounded-3" style="width:36px;height:36px;color:#52525b">
           <i class="fa-solid fa-cart-shopping"></i>
           @if ($cartCount > 0)
             <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-bold text-white" style="top:-2px;right:-2px;width:16px;height:16px;font-size:10px;background:var(--lumora-theme)">{{ $cartCount }}</span>

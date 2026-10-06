@@ -39,7 +39,7 @@
                 <option value="">Pilih kategori</option>
                 @foreach ($categories as $cat)
                   <option value="{{ $cat->id }}" data-type="{{ $cat->type ?? 'hosting' }}" @selected(old('product_category_id', $product->product_category_id) == $cat->id)>
-                    {{ $cat->name }} — {{ $cat->typeLabel() }}
+                    {{ $cat->name }} — {{ ($cat->type ?? 'hosting') === 'vps' ? 'VPS' : 'Hosting' }}
                   </option>
                 @endforeach
               </select>
@@ -162,38 +162,26 @@
                 @foreach ($servers as $srv)
                   <option value="{{ $srv->id }}" data-kind="{{ $srv->isCloud() ? 'vps' : 'hosting' }}"
                           @selected(old('server_id', $product->server_id) == $srv->id)>
-                    {{ $srv->group ? $srv->group->name . ' · ' : '' }}{{ $srv->name }}{{ $srv->isCloud() ? ' (Cloud/VPS · ' . $srv->vpsLabel() . ')' : ' (' . $srv->panelLabel() . ')' }}
+                    {{ $srv->name }}{{ $srv->isCloud() ? ' (Cloud/VPS · ' . $srv->vpsLabel() . ')' : ' (cPanel)' }}
                   </option>
                 @endforeach
               </select>
               <p class="text-muted mt-1 mb-0" style="font-size:11px">Hanya server yang cocok dengan jenis kategori yang ditampilkan.</p>
             </div>
-            <div class="col-sm-6" id="serverGroupField">
-              <label class="form-label small fw-medium text-dark">Server Group <span class="text-muted fw-normal">(alternatif server tetap)</span></label>
-              <select name="server_group_id" id="serverGroupSelect" class="form-select" style="{{ $selectStyle }}">
-                <option value="">— Tidak pakai grup —</option>
-                @foreach ($serverGroups as $g)
-                  <option value="{{ $g->id }}" @selected((string) old('server_group_id', $product->server_group_id) === (string) $g->id)>{{ $g->name }}</option>
+            <div class="col-sm-6" id="serverPackageField">
+              <label class="form-label small fw-medium text-dark">Server Package (opsional)</label>
+              <select name="server_package_id" class="form-select" style="{{ $selectStyle }}">
+                <option value="">— Ketik nama plan manual —</option>
+                @foreach (\App\Models\ServerPackage::with('server')->where('is_active', true)->orderBy('server_id')->orderBy('name')->get() as $pkg)
+                  <option value="{{ $pkg->id }}" @selected((string) old('server_package_id', $product->server_package_id) === (string) $pkg->id)>{{ $pkg->server?->name }} — {{ $pkg->name }}</option>
                 @endforeach
               </select>
-              <p class="text-muted mt-1 mb-0" style="font-size:11px">Server dipilih otomatis dari grup ini: yang aktif, belum penuh, dan akunnya paling sedikit. Kalau "Server Tujuan" diisi, server itu yang dipakai.</p>
-            </div>
-            <div class="col-sm-6" id="moduleOptionField">
-              <label class="form-label small fw-medium text-dark">Mode Provisioning</label>
-              <select name="module_option" class="form-select" style="{{ $selectStyle }}">
-                @foreach (\App\Models\Product::MODULE_OPTIONS as $k => $label)
-                  <option value="{{ $k }}" @selected(old('module_option', $product->module_option ?? 'automation') === $k)>{{ $label }}</option>
-                @endforeach
-              </select>
+              <p class="text-muted mt-1 mb-0" style="font-size:11px">Bila dipilih (dan package milik server di atas), nama plan di bawah terisi otomatis.</p>
             </div>
             <div class="col-sm-6" id="cpanelPackageField">
               <label class="form-label small fw-medium text-dark">Nama Package di WHM/cPanel</label>
-              <div class="input-group input-group-sm">
-                <input type="text" name="panel_package" id="panelPackageInput" list="panelPackageList" value="{{ old('panel_package', $product->panel_package) }}" class="form-control form-control-sm" placeholder="cloud_hosting_pro" autocomplete="off">
-                <button type="button" id="loadPackagesBtn" class="btn btn-outline-secondary" title="Ambil daftar paket dari server">Muat Paket</button>
-              </div>
-              <datalist id="panelPackageList"></datalist>
-              <p class="text-muted mt-1 mb-0" id="packageHelp" style="font-size:11px">Pilih dari daftar (klik "Muat Paket") atau ketik manual. Harus sama persis dengan nama plan di server.</p>
+              <input type="text" name="panel_package" id="panelPackageInput" value="{{ old('panel_package', $product->panel_package) }}" class="form-control form-control-sm" placeholder="cloud_hosting_pro">
+              <p class="text-muted mt-1 mb-0" style="font-size:11px">Harus sama persis dengan nama plan yang sudah dibuat di WHM.</p>
             </div>
           </div>
 
@@ -411,43 +399,13 @@
 
   <script @nonce>
     (function () {
-      const btn = document.getElementById('loadPackagesBtn');
-      if (! btn) return;
-      const srv = document.getElementById('serverSelect');
-      const grp = document.getElementById('serverGroupSelect');
-      const list = document.getElementById('panelPackageList');
-      const help = document.getElementById('packageHelp');
-      const url = @json(route('admin.products.server-packages'));
-
-      btn.addEventListener('click', async function () {
-        const q = new URLSearchParams();
-        if (srv.value) q.set('server_id', srv.value); else if (grp.value) q.set('server_group_id', grp.value);
-        if (! q.toString()) { help.textContent = 'Pilih Server Tujuan atau Server Group dulu.'; return; }
-        btn.disabled = true; help.textContent = 'Mengambil paket dari server…';
-        try {
-          const res = await fetch(url + '?' + q, { headers: { 'Accept': 'application/json' } });
-          const data = await res.json();
-          list.innerHTML = '';
-          (data.packages || []).forEach(function (p) { const o = document.createElement('option'); o.value = p; list.appendChild(o); });
-          help.textContent = data.success ? data.message + ' (' + data.packages.length + ' paket — klik kolom lalu pilih).' : 'Gagal: ' + data.message;
-        } catch (e) { help.textContent = 'Gagal menghubungi server.'; }
-        btn.disabled = false;
-      });
-
-      // Server tetap dan group saling menggantikan.
-      grp.addEventListener('change', function () { if (grp.value) srv.value = ''; });
-      srv.addEventListener('change', function () { if (srv.value) grp.value = ''; });
-    })();
-  </script>
-
-  <script @nonce>
-    (function () {
       const catSelect = document.getElementById('categorySelect');
       const serverSelect = document.getElementById('serverSelect');
       if (! catSelect || ! serverSelect) return;
 
       const vpsFields = document.getElementById('vpsSpecFields');
       const cpanelField = document.getElementById('cpanelPackageField');
+      const serverPackageField = document.getElementById('serverPackageField');
       const billingModeSelect = document.getElementById('vmBillingMode');
       const pricingCard = document.getElementById('pricingCyclesCard');
       const hourlyCard = document.getElementById('hourlyPricingCard');
@@ -498,11 +456,7 @@
 
         vpsFields.classList.toggle('d-none', ! isVps);
         cpanelField.classList.toggle('d-none', isVps);
-        ['serverGroupField', 'moduleOptionField'].forEach(function (id) {
-          const f = document.getElementById(id);
-          f.classList.toggle('d-none', isVps);
-          f.querySelectorAll('select').forEach(function (s) { s.disabled = isVps; });
-        });
+        if (serverPackageField) serverPackageField.classList.toggle('d-none', isVps);
 
         // Field "Cara Menagih" cuma berlaku untuk produk VPS -- dinonaktifkan
         // (bukan cuma disembunyikan) untuk kategori hosting/domain supaya

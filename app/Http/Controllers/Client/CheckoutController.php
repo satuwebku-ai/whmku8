@@ -508,11 +508,7 @@ class CheckoutController extends Controller
         // akan gagal dengan error mentah dari WHM ("package not found")
         // yang membingungkan. Diperlakukan sama seperti "belum diatur sama
         // sekali", jatuh ke mode manual dengan pesan yang jelas.
-        // Server dipilih lewat Server Group (atau server tetap di produk),
-        // sesuai Module Option: automation | semi | manual.
-        $targetServer = $product?->resolveServer();
-        $moduleOption = $product?->module_option ?? 'automation';
-        $readyForAutoProvision = $targetServer && filled($product?->panel_package);
+        $readyForAutoProvision = $product?->server_id && filled($product?->panel_package);
 
         // Stok terbatas: dikunci & dikurangi DI SINI (di dalam transaksi
         // checkout), bukan cuma dicek waktu tambah ke keranjang seperti
@@ -535,20 +531,18 @@ class CheckoutController extends Controller
         $hostingAccount = HostingAccount::create([
             'client_id'        => $client->id,
             'product_id'       => $product?->id,
-            'server_id'        => $readyForAutoProvision ? $targetServer->id : null,
+            'server_id'        => $readyForAutoProvision ? $product->server_id : null,
             'domain'           => $domainName ?: ('layanan-' . Str::lower(Str::random(6))),
             'package'          => $product?->panel_package ?: ($product?->name ?? $item['name']),
-            'panel'            => $targetServer?->panel ?? $product?->server?->panel ?? 'cpanel',
+            'panel'            => $product?->server?->panel ?? 'cpanel',
             'price'            => $basePrice,
             'billing_cycle'    => $item['billing_cycle'],
             'billing_mode'     => $isDeposit ? 'deposit' : 'invoice',
             'status'           => 'pending',
-            'provision_status' => ($readyForAutoProvision && $moduleOption === 'semi') ? 'awaiting_approval' : 'manual',
+            'provision_status' => 'manual',
             'provision_message' => $readyForAutoProvision
-                ? ($moduleOption === 'semi' ? "Menunggu persetujuan admin (server terpilih: {$targetServer->name})." : null)
-                : (($product?->server_id || $product?->server_group_id) && $moduleOption !== 'manual'
-                    ? ($targetServer ? 'Nama paket WHM belum diatur di produk ini — aktivasi perlu dilakukan manual oleh admin.' : 'Tidak ada server aktif yang punya kapasitas di grup produk ini — aktivasi manual oleh admin.')
-                    : null),
+                ? null
+                : ($product?->server_id ? 'Nama paket WHM belum diatur di produk ini — aktivasi perlu dilakukan manual oleh admin.' : null),
             // Layanan deposit tidak punya siklus jatuh tempo -- tidak
             // pernah ditagih ulang lewat GenerateRenewalInvoices, jadi
             // next_due_date dikosongkan supaya command itu (yang jalan
