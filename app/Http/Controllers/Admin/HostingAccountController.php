@@ -501,6 +501,11 @@ class HostingAccountController extends Controller
             return back()->with('error', 'Invoice terkait belum lunas — provisioning cuma bisa dipicu untuk invoice yang sudah dibayar.');
         }
 
+        // "Aktifkan" pada akun semi-otomatis = menyetujui provisioning.
+        if ($hostingAccount->provision_status === 'awaiting_approval') {
+            $hostingAccount->update(['provision_status' => 'manual', 'provision_message' => 'Disetujui admin, provisioning dijalankan.']);
+        }
+
         app(\App\Services\Provisioning\ProvisioningService::class)->provisionInvoice($invoiceItem->invoice);
 
         $hostingAccount->refresh();

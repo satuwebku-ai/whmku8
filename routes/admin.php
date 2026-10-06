@@ -322,6 +322,7 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::resource('addons', \App\Http\Controllers\Admin\AddonController::class)->except('show');
         Route::post('addon/status', [\App\Http\Controllers\Admin\AddonController::class, 'status'])->name('addon.status');
         Route::post('addons/{addon}/sync', [\App\Http\Controllers\Admin\AddonController::class, 'sync'])->name('addons.sync');
+        Route::get('products/server-packages', [ProductController::class, 'serverPackages'])->name('products.server-packages');
         Route::post('products/vps-estimate', [ProductController::class, 'vpsEstimate'])->name('products.vps-estimate');
         Route::resource('products', ProductController::class)->except('show');
         Route::post('product/status', [ProductController::class, 'status'])->name('product.status');

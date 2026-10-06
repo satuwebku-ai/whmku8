@@ -91,6 +91,12 @@ class ProductController extends Controller
     private function preparedData(Request $request, ?int $ignoreId = null): array
     {
         $data = $this->validated($request, $ignoreId);
+        $data['module_option'] = $data['module_option'] ?? 'automation';
+        // Server tetap & server group saling melengkapi: kalau server tetap
+        // dipilih, group dikosongkan (server tetap yang menang).
+        if (! empty($data['server_id'])) {
+            $data['server_group_id'] = null;
+        }
         $this->assertCategoryMatchesServer($data);
         $data['billing_mode'] = $this->normalizedBillingMode($data);
         $data = $this->withVmSpec($request, $data);
@@ -138,7 +144,49 @@ class ProductController extends Controller
             'product' => $product,
             'categories' => ProductGroup::orderBy('name')->get(),
             'servers' => $servers,
+            'serverGroups' => \App\Models\ServerGroup::active()->orderBy('sort_order')->orderBy('name')->get(),
             'vpsServerMeta' => $this->vpsServerMeta($servers),
+        ]);
+    }
+
+    /**
+     * Daftar paket (plan) yang BENAR-BENAR ada di server -- dipakai dropdown
+     * "Nama Package" di form Produk (setara getServerPackage di sistem contoh).
+     * Boleh dipanggil dengan server_id (server tetap) atau server_group_id
+     * (memakai server aktif pertama di grup itu).
+     */
+    public function serverPackages(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'server_id' => ['nullable', 'integer'],
+            'server_group_id' => ['nullable', 'integer'],
+        ]);
+
+        $server = $request->filled('server_id')
+            ? Server::find($request->integer('server_id'))
+            : Server::where('server_group_id', $request->integer('server_group_id'))
+                ->where('is_active', true)->whereNull('vps_provider')->where('panel', '!=', 'vps')->orderBy('id')->first();
+
+        if (! $server || $server->isCloud() || $server->isCustomPanel()) {
+            return response()->json(['success' => false, 'message' => 'Pilih server/grup hosting (cPanel/DirectAdmin/Plesk) yang punya server aktif.', 'packages' => []]);
+        }
+
+        try {
+            $panel = \App\Services\Hosting\HostingPanelFactory::make($server);
+
+            if (! method_exists($panel, 'listPackages')) {
+                return response()->json(['success' => false, 'message' => 'Panel ' . $server->panelLabel() . ' belum mendukung daftar paket. Ketik nama paket manual.', 'packages' => []]);
+            }
+
+            $result = $panel->listPackages();
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'packages' => []]);
+        }
+
+        return response()->json([
+            'success' => (bool) $result['success'],
+            'message' => $result['success'] ? "Paket dari server {$server->name}." : $result['message'],
+            'packages' => $result['packages'] ?? [],
         ]);
     }
 
@@ -249,6 +297,8 @@ class ProductController extends Controller
             'setup_fee'           => ['nullable', 'numeric', 'min:0'],
             'domain_option'       => ['required', 'in:required,optional,none'],
             'server_id'           => ['nullable', 'exists:servers,id'],
+            'server_group_id'     => ['nullable', 'exists:server_groups,id'],
+            'module_option'       => ['nullable', 'in:automation,semi,manual'],
             'panel_package'       => ['nullable', 'string', 'max:500'],
             'billing_mode'        => ['nullable', 'in:invoice,deposit'],
             'pricing_mode'        => ['nullable', 'in:manual,markup'],

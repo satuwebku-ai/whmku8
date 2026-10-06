@@ -121,7 +121,7 @@
         @if ($account->provision_status !== 'provisioned')
           <div class="mt-3 pt-3 border-top small">
             <p class="text-muted mb-0" style="font-size:11px">STATUS PROVISIONING TERAKHIR</p>
-            <p class="mb-0 mt-1 {{ $account->provision_status === 'manual' ? 'text-muted' : 'text-danger' }}">
+            <p class="mb-0 mt-1 {{ in_array($account->provision_status, ['manual', 'awaiting_approval'], true) ? 'text-muted' : 'text-danger' }}">
               {{ $account->provision_message ?: ($account->provision_status === 'manual' ? '(belum pernah dicoba — masih menunggu pemicu otomatis atau diproses manual admin)' : '(tidak ada keterangan)') }}
             </p>
             <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">

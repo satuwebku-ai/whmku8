@@ -16,7 +16,7 @@ class Product extends Model
     protected $fillable = [
         'product_category_id', 'name', 'slug', 'tagline', 'description', 'features',
         'price_monthly', 'price_quarterly', 'price_semi_annually', 'price_annually', 'price_custom', 'setup_fee',
-        'custom_cycle_days', 'domain_option', 'server_id', 'panel_package', 'billing_mode',
+        'custom_cycle_days', 'domain_option', 'server_id', 'server_group_id', 'module_option', 'panel_package', 'billing_mode',
         'pricing_mode', 'markup_percent', 'price_per_vcpu_hour', 'price_per_ram_gb_hour',
         'price_per_storage_gb_hour', 'price_per_backup_gb_hour', 'price_per_snapshot_gb_hour',
         'price_windows_license_per_vcpu_hour',
@@ -90,6 +90,52 @@ class Product extends Model
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);
+    }
+
+    public function serverGroup(): BelongsTo
+    {
+        return $this->belongsTo(ServerGroup::class);
+    }
+
+    public const MODULE_OPTIONS = [
+        'automation' => 'Otomatis — akun dibuat begitu invoice lunas',
+        'semi'       => 'Semi-otomatis — server dipilih otomatis, admin menekan "Aktifkan"',
+        'manual'     => 'Manual — tanpa provisioning otomatis',
+    ];
+
+    /**
+     * Server tujuan untuk order baru, mengikuti alur sistem contoh:
+     *  1. Kalau produk menunjuk satu server tertentu -> server itu.
+     *  2. Kalau produk menunjuk server GROUP -> server aktif non-cloud di
+     *     grup itu yang masih punya kapasitas, dengan akun paling sedikit.
+     *  3. Selain itu null (provisioning manual).
+     * Mode "manual" tidak pernah memilih server.
+     */
+    public function resolveServer(): ?Server
+    {
+        if (($this->module_option ?? 'automation') === 'manual') {
+            return null;
+        }
+
+        if ($this->server_id) {
+            return $this->server;
+        }
+
+        if (! $this->server_group_id) {
+            return null;
+        }
+
+        return Server::query()
+            ->where('server_group_id', $this->server_group_id)
+            ->where('is_active', true)
+            ->whereNotIn('panel', ['vps'])
+            ->whereNull('vps_provider')
+            ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', ['terminated', 'cancelled'])])
+            ->get()
+            ->filter(fn (Server $s) => ! $s->isCustomPanel())
+            ->filter(fn (Server $s) => ! $s->max_accounts || $s->active_accounts_count < $s->max_accounts)
+            ->sortBy('active_accounts_count')
+            ->first();
     }
 
     public function orders(): HasMany

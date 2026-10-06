@@ -31,7 +31,7 @@ class CheckoutController extends Controller
     public function index(CartService $cart, CouponService $coupons): View|RedirectResponse
     {
         if ($cart->isEmpty()) {
-            return redirect()->route('client.cart')->with('error', 'Keranjang Anda masih kosong.');
+            return redirect()->route('cart.index')->with('error', 'Keranjang Anda masih kosong.');
         }
 
         return view('client.checkout.index', $this->checkoutData($cart, $coupons));
@@ -96,7 +96,7 @@ class CheckoutController extends Controller
     public function store(CartService $cart, CouponService $coupons): RedirectResponse
     {
         if ($cart->isEmpty()) {
-            return redirect()->route('client.cart')->with('error', 'Keranjang Anda masih kosong.');
+            return redirect()->route('cart.index')->with('error', 'Keranjang Anda masih kosong.');
         }
 
         $issues = $this->validateCart($cart);
@@ -189,7 +189,7 @@ class CheckoutController extends Controller
             // seluruh transaksi otomatis di-rollback (termasuk decrement
             // stok yang sempat terjadi), jadi aman diberi tahu ke klien
             // tanpa ada efek samping yang tertinggal.
-            return redirect()->route('client.cart')->with('error', $e->getMessage());
+            return redirect()->route('cart.index')->with('error', $e->getMessage());
         }
 
         foreach ($cart->items() as $item) {
@@ -508,7 +508,11 @@ class CheckoutController extends Controller
         // akan gagal dengan error mentah dari WHM ("package not found")
         // yang membingungkan. Diperlakukan sama seperti "belum diatur sama
         // sekali", jatuh ke mode manual dengan pesan yang jelas.
-        $readyForAutoProvision = $product?->server_id && filled($product?->panel_package);
+        // Server dipilih lewat Server Group (atau server tetap di produk),
+        // sesuai Module Option: automation | semi | manual.
+        $targetServer = $product?->resolveServer();
+        $moduleOption = $product?->module_option ?? 'automation';
+        $readyForAutoProvision = $targetServer && filled($product?->panel_package);
 
         // Stok terbatas: dikunci & dikurangi DI SINI (di dalam transaksi
         // checkout), bukan cuma dicek waktu tambah ke keranjang seperti
@@ -531,18 +535,20 @@ class CheckoutController extends Controller
         $hostingAccount = HostingAccount::create([
             'client_id'        => $client->id,
             'product_id'       => $product?->id,
-            'server_id'        => $readyForAutoProvision ? $product->server_id : null,
+            'server_id'        => $readyForAutoProvision ? $targetServer->id : null,
             'domain'           => $domainName ?: ('layanan-' . Str::lower(Str::random(6))),
             'package'          => $product?->panel_package ?: ($product?->name ?? $item['name']),
-            'panel'            => $product?->server?->panel ?? 'cpanel',
+            'panel'            => $targetServer?->panel ?? $product?->server?->panel ?? 'cpanel',
             'price'            => $basePrice,
             'billing_cycle'    => $item['billing_cycle'],
             'billing_mode'     => $isDeposit ? 'deposit' : 'invoice',
             'status'           => 'pending',
-            'provision_status' => 'manual',
+            'provision_status' => ($readyForAutoProvision && $moduleOption === 'semi') ? 'awaiting_approval' : 'manual',
             'provision_message' => $readyForAutoProvision
-                ? null
-                : ($product?->server_id ? 'Nama paket WHM belum diatur di produk ini — aktivasi perlu dilakukan manual oleh admin.' : null),
+                ? ($moduleOption === 'semi' ? "Menunggu persetujuan admin (server terpilih: {$targetServer->name})." : null)
+                : (($product?->server_id || $product?->server_group_id) && $moduleOption !== 'manual'
+                    ? ($targetServer ? 'Nama paket WHM belum diatur di produk ini — aktivasi perlu dilakukan manual oleh admin.' : 'Tidak ada server aktif yang punya kapasitas di grup produk ini — aktivasi manual oleh admin.')
+                    : null),
             // Layanan deposit tidak punya siklus jatuh tempo -- tidak
             // pernah ditagih ulang lewat GenerateRenewalInvoices, jadi
             // next_due_date dikosongkan supaya command itu (yang jalan

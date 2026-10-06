@@ -110,9 +110,9 @@
 
     {{-- Server Group: pilih yang ada, atau ketik nama baru (otomatis dibuat saat disimpan). --}}
     <div class="mb-3">
-      <label class="form-label small fw-medium text-dark">Server Group <span class="text-muted fw-normal">(opsional)</span></label>
-      <select name="server_group_id" id="groupSelect" class="form-select" style="{{ $selectStyle }}">
-        <option value="">— Tanpa grup —</option>
+      <label class="form-label small fw-medium text-dark">Server Group</label>
+      <select name="server_group_id" id="groupSelect" class="form-select" style="{{ $selectStyle }}" required>
+        <option value="">— Pilih grup —</option>
         @foreach ($groups as $g)
           <option value="{{ $g->id }}" @selected((string) $currentGroup === (string) $g->id)>{{ $g->name }}</option>
         @endforeach

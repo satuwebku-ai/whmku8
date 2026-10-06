@@ -442,7 +442,7 @@ class ServerController extends Controller
             'ns2'          => ['nullable', 'string', 'max:255'],
             'port'         => [$isVps || $isCustom ? 'nullable' : 'required', 'integer', 'min:1', 'max:65535'],
             'panel'        => ['required', 'string', 'max:50', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
-            'server_group_id' => ['nullable', 'exists:server_groups,id'],
+            'server_group_id' => ['required', 'exists:server_groups,id'],
             'vps_provider' => [Rule::requiredIf($isVps), 'nullable', 'string', Rule::in(array_keys(config('vps_providers', [])))],
             'api_username' => [$required('api_username') ? 'required' : 'nullable', 'string', 'max:100'],
             'api_token'    => [$updating || $isCustom ? 'nullable' : 'required', 'string'],
@@ -459,6 +459,7 @@ class ServerController extends Controller
             'cost_fx_rate' => ['nullable', 'numeric', 'min:0'],
             'is_active'    => ['nullable', 'boolean'],
         ], [
+            'server_group_id.required' => 'Pilih Server Group atau ketik nama grup baru.',
             'panel.required'        => 'Pilih Jenis Panel atau ketik nama panel manual.',
             'panel.regex'           => 'Nama panel hanya boleh huruf, angka, strip, dan underscore.',
             'vps_provider.required' => 'Pilih VPS Provider dulu.',

@@ -158,6 +158,12 @@ class ProvisioningService
                 return null;
             }
 
+            // Mode semi-otomatis: server sudah dipilih, tapi akun baru dibuat
+            // setelah admin menekan "Aktifkan" (retryProvisioning).
+            if ($account->provision_status === 'awaiting_approval') {
+                return null;
+            }
+
             if (! $account->server_id) {
                 $account->update([
                     'provision_status' => 'manual',
