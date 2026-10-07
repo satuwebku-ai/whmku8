@@ -101,9 +101,8 @@ class HostingAccount extends Model
      * dengan sengaja supaya tidak ada kombinasi yang berujung error atau
      * butuh campur tangan admin:
      *   - kategori produk sama (upgrade hosting ke hosting, bukan ke domain)
-     *   - server sama (pindah paket lewat WHM `changepackage` hanya bisa
-     *     di server yang sama; pindah ANTAR server itu migrasi akun penuh,
-     *     operasi yang jauh lebih berisiko dan di luar cakupan fitur ini)
+     *   - server akun saat ini harus menjadi tujuan produk langsung atau
+     *     anggota aktif dari grup tujuan (upgrade tidak memindahkan akun)
      *   - harga siklus yang sama lebih tinggi (downgrade tidak ditangani
      *     di sini karena butuh skema refund/kredit yang belum dibangun)
      */
@@ -113,8 +112,28 @@ class HostingAccount extends Model
             return \App\Models\Product::whereRaw('1 = 0')->get(); // kosong — akun lama tanpa jejak produk
         }
 
+        if (! $this->server_id) {
+            return \App\Models\Product::whereRaw('1 = 0')->get();
+        }
+
         return \App\Models\Product::where('product_category_id', $this->product->product_category_id)
-            ->where('server_id', $this->server_id)
+            ->where(function ($query) {
+                $query->where('server_id', $this->server_id)
+                    ->orWhere(function ($groupProducts) {
+                        $groupProducts->whereNull('server_id')
+                            ->whereHas('serverGroup', function ($group) {
+                                $group->where('is_active', true)
+                                    ->whereHas('servers', function ($server) {
+                                        $server->whereKey($this->server_id)
+                                            ->where('servers.panel', 'cpanel')
+                                            ->whereNull('servers.vps_provider')
+                                            ->where('servers.is_active', true)
+                                            ->where('servers.is_maintenance', false)
+                                            ->where('server_group_server.is_active', true);
+                                    });
+                            });
+                    });
+            })
             ->where('is_active', true)
             ->where('id', '!=', $this->product_id)
             ->get()

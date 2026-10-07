@@ -133,7 +133,9 @@
             ]],
 
             ['label' => 'Konten', 'icon' => 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z', 'module' => 'content', 'children' => [
-              ['label' => 'Konten & Halaman',     'route' => 'admin.pages', 'match' => ['admin.page*', 'admin.announcement*', 'admin.promo-banners.*', 'admin.popup-banner.*']],
+              ['label' => 'Konten & Halaman',     'route' => 'admin.pages', 'match' => ['admin.page*', 'admin.announcement*', 'admin.blog.*', 'admin.knowledge-base.*', 'admin.promo-banners.*', 'admin.popup-banner.*']],
+              ['label' => 'Artikel Blog',         'route' => 'admin.blog.index', 'match' => ['admin.blog.*']],
+              ['label' => 'Pusat Bantuan',        'route' => 'admin.knowledge-base.index', 'match' => ['admin.knowledge-base.*']],
               ['label' => 'Template Notifikasi',  'route' => 'admin.notification-templates.index', 'match' => ['admin.notification-templates.*']],
             ]],
 

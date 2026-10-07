@@ -8,7 +8,7 @@
 
   <div class="mb-3">
     <h1 class="h4 fw-bold text-dark mb-1">{{ $group->exists ? 'Edit Grup Server' : 'Tambah Grup Server' }}</h1>
-    <p class="small text-muted mb-0">Pilih server anggota di bawah, lalu pilih grup ini di halaman Produk.</p>
+    <p class="small text-muted mb-0">Pilih server cPanel untuk provisioning otomatis. Grup ini kemudian dapat dipilih di halaman Produk.</p>
   </div>
 
   <form method="POST" action="{{ $group->exists ? route('admin.server-groups.update', $group) : route('admin.server-groups.store') }}" class="card border rounded-4 p-4" style="max-width:52rem" autocomplete="off">
@@ -80,7 +80,12 @@
                 <tr>
                   <td class="px-3"><input type="checkbox" name="servers[]" value="{{ $srv->id }}" class="form-check-input" @checked($isMember)></td>
                   <td class="fw-medium text-dark">{{ $srv->name }}<br><span class="text-muted fw-normal" style="font-size:11px">{{ $srv->hostname }}</span></td>
-                  <td class="text-muted">{{ strtoupper($srv->panel) }}</td>
+                  <td class="text-muted">
+                    {{ strtoupper($srv->panel) }}
+                    @if ($srv->panel !== 'cpanel' || filled($srv->vps_provider))
+                      <span class="badge badge-soft-warning ms-1">Tidak dipakai untuk order otomatis</span>
+                    @endif
+                  </td>
                   <td class="text-center text-muted">{{ $srv->active_accounts_count }}@if ($srv->max_accounts !== null) / {{ $srv->max_accounts }}@endif</td>
                   <td>
                     @if (! $srv->is_active) <span class="badge badge-soft-secondary">Nonaktif</span>
@@ -96,7 +101,7 @@
         </div>
         <p class="text-muted mt-1 mb-0" style="font-size:11px">
           Prioritas: angka kecil didahulukan (dipakai mode Prioritas, dan sebagai pemutus seri di mode lain).
-          Satu server boleh masuk ke beberapa grup. Server VPS/cloud tidak tampil di sini.
+          Angka prioritas kecil didahulukan. Server non-cPanel lama tetap ditampilkan agar dapat dikeluarkan, tetapi tidak dipilih untuk order otomatis.
         </p>
         @error('servers.*') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
         @error('priority.*') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror

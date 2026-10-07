@@ -8,8 +8,8 @@ use App\Models\Server;
 /**
  * Menentukan server tujuan untuk order baru dari sebuah produk.
  *
- *  - Produk punya Grup Server  -> server dipilih otomatis dari grup itu
- *    (lihat ServerGroup::pickServer()).
+ *  - Produk punya Grup Server  -> server cPanel dipilih otomatis dari grup
+ *    itu (lihat ServerGroup::pickServer()).
  *  - Produk hanya punya Server -> server itu dipakai, TAPI hanya kalau masih
  *    aktif, tidak maintenance, dan belum penuh.
  *  - Tidak ada keduanya        -> tanpa server (aktivasi manual, seperti dulu).
@@ -41,7 +41,7 @@ class ServerSelector
 
             return $server
                 ? ['server' => $server, 'reason' => null]
-                : ['server' => null, 'reason' => "Semua server di grup \"{$group->name}\" penuh, nonaktif, atau sedang maintenance — aktivasi perlu dilakukan manual oleh admin."];
+                : ['server' => null, 'reason' => "Tidak ada server cPanel yang siap di grup \"{$group->name}\" (server mungkin penuh, nonaktif, maintenance, atau belum mendukung provisioning otomatis) — aktivasi perlu dilakukan manual oleh admin."];
         }
 
         if ($product->server_id) {

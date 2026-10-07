@@ -185,6 +185,7 @@
           @endforeach
         </nav>
       @endif
+      @include('public.partials.content-links')
       <p class="text-muted mb-0" style="font-size:14px">{{ Setting::get('footer_text') ?: '© ' . date('Y') . ' ' . $siteName . '. Semua hak dilindungi.' }}</p>
     </div>
   </footer>

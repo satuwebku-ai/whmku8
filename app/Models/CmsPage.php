@@ -23,7 +23,7 @@ class CmsPage extends Model
      */
     public const RESERVED_SLUGS = [
         'admin', 'client', 'hosting', 'vps', 'cek-domain', 'keranjang', 'chat',
-        'p', 'announcements', 'payment', 'storage', 'build', 'vendor',
+        'p', 'announcements', 'blog', 'knowledge-base', 'payment', 'storage', 'build', 'vendor',
         'api', 'login', 'register', 'logout', 'dashboard', 'home',
         'domain-premium', 'transfer-domain', 'ref',
         'robots.txt', 'sitemap.xml', 'favicon.ico',

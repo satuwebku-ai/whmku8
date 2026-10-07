@@ -30,6 +30,24 @@ class CmsPost extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', 'published');
+        return $query->where('status', 'published')
+            ->where(fn (Builder $query) => $query
+                ->whereNull('published_at')
+                ->orWhere('published_at', '<=', now()));
+    }
+
+    public function getSafeContentAttribute(): string
+    {
+        return \App\Support\HtmlSanitizer::clean($this->content);
+    }
+
+    public function getSeoTitleAttribute(): string
+    {
+        return (string) ($this->title ?: '');
+    }
+
+    public function getSeoDescriptionAttribute(): string
+    {
+        return (string) ($this->excerpt ?: \Illuminate\Support\Str::limit(strip_tags((string) $this->content), 155));
     }
 }

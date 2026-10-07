@@ -167,6 +167,8 @@
             @foreach ($footerPages as $fp)
               <li><a href="{{ route('page.show', $fp->slug) }}">{{ $fp->title }}</a></li>
             @endforeach
+            <li><a href="{{ route('blog.index') }}">Blog</a></li>
+            <li><a href="{{ route('knowledge-base.index') }}">Pusat Bantuan</a></li>
           </ul>
         </div>
       </div>

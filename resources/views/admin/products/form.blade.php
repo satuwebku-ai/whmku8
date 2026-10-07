@@ -181,7 +181,7 @@
                 </select>
                 <p class="text-muted mt-1 mb-0" style="font-size:11px">
                   Kalau diisi, order baru otomatis ditempatkan ke server di grup ini sesuai mode grup, dan
-                  <b>menggantikan</b> Server Tujuan di atas. Server yang penuh atau sedang maintenance dilewati.
+                  <b>menggantikan</b> Server Tujuan di atas. Hanya server cPanel yang siap dipilih; jika tidak ada, order dapat masuk untuk aktivasi manual.
                   Hanya untuk produk hosting (cPanel) — tidak berlaku untuk VPS.
                 </p>
               </div>

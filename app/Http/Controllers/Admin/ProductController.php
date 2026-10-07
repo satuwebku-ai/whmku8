@@ -98,8 +98,8 @@ class ProductController extends Controller
     private function preparedData(Request $request, ?int $ignoreId = null): array
     {
         $data = $this->validated($request, $ignoreId);
-        $this->assertCategoryMatchesServer($data);
         $data = $this->normalizedServerGroup($data);
+        $this->assertCategoryMatchesServer($data);
         $data['billing_mode'] = $this->normalizedBillingMode($data);
         $data = $this->withVmSpec($request, $data);
         $this->assertHasPrice($data);
@@ -140,8 +140,12 @@ class ProductController extends Controller
     {
         $isCloudServer = ! empty($data['server_id']) && Server::cloud()->whereKey($data['server_id'])->exists();
 
-        if ($isCloudServer || empty($data['server_group_id'])) {
+        if ($isCloudServer) {
             $data['server_group_id'] = null;
+        } elseif (! empty($data['server_group_id'])) {
+            // A product must have exactly one server source. The selected
+            // group owns placement, so discard any stale direct server id.
+            $data['server_id'] = null;
         }
 
         return $data;

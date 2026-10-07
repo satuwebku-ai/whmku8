@@ -2,6 +2,10 @@
   $cmsTabs = [
     ['label' => 'Halaman', 'route' => 'admin.pages'],
     ['label' => 'Pengumuman', 'route' => 'admin.announcements'],
+    ['label' => 'Blog', 'route' => 'admin.blog.index'],
+    ['label' => 'Kategori Blog', 'route' => 'admin.blog.categories'],
+    ['label' => 'Pusat Bantuan', 'route' => 'admin.knowledge-base.index'],
+    ['label' => 'Kategori Bantuan', 'route' => 'admin.knowledge-base.categories'],
     ['label' => 'Menu Utama', 'route' => 'admin.nav-menus'],
     ['label' => 'Submenu / Subnav', 'route' => 'admin.nav-submenus'],
     ['label' => 'Banner Promo', 'route' => 'admin.promo-banners.index'],

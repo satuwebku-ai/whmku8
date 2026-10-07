@@ -42,7 +42,7 @@ class ServerGroup extends Model
 
     /**
      * Pilih server yang akan menerima order baru, sesuai selection_mode.
-     * Hanya server yang aktif, tidak maintenance, dan belum penuh
+     * Hanya anggota cPanel yang aktif, tidak maintenance, dan belum penuh
      * (max_accounts) yang ikut dipertimbangkan. Null kalau tidak ada.
      */
     public function pickServer(): ?Server
@@ -53,6 +53,11 @@ class ServerGroup extends Model
 
         $candidates = $this->servers()
             ->wherePivot('is_active', true)
+            // Automatic provisioning currently has a complete cPanel/WHM
+            // implementation. Keep legacy/non-cPanel group members stored,
+            // but never assign a new account to an unsupported panel or VPS.
+            ->where('servers.panel', 'cpanel')
+            ->whereNull('servers.vps_provider')
             ->acceptingNewAccounts()
             ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])
             ->withMax('hostingAccounts as last_assigned_at', 'created_at')

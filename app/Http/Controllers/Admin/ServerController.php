@@ -52,6 +52,15 @@ class ServerController extends Controller
     public function update(Request $request, Server $server): RedirectResponse
     {
         $data = $this->validated($request, updating: true);
+
+        $becomingCloud = ($data['panel'] === 'vps' || filled($data['vps_provider'] ?? null))
+            && ! $server->isCloud();
+        if ($becomingCloud && ($server->groups()->exists() || $server->server_group_id !== null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'panel' => 'Server ini masih menjadi anggota grup server. Keluarkan dari semua grup sebelum mengubahnya menjadi VPS/cloud.',
+            ]);
+        }
+
         $data['hostname'] = $data['hostname'] ?? '';
         $data['api_username'] = $data['api_username'] ?? '';
         $data['verify_ssl'] = $request->boolean('verify_ssl');
@@ -310,13 +319,22 @@ class ServerController extends Controller
 
         // Produk yang menunjuk ke server ini, dan apakah panel_package-nya
         // benar-benar ada di daftar paket sungguhan di atas.
-        $products = \App\Models\Product::where('server_id', $server->id)
+        $products = \App\Models\Product::with('serverGroup')
             ->where('is_active', true)
+            ->where(function ($query) use ($server) {
+                $query->where('server_id', $server->id)
+                    ->orWhereHas('serverGroup', fn ($group) => $group->whereHas(
+                        'servers',
+                        fn ($members) => $members->whereKey($server->id)
+                            ->where('server_group_server.is_active', true)
+                    ));
+            })
             ->get()
             ->map(fn ($p) => [
                 'name' => $p->name,
                 'panel_package' => $p->panel_package,
                 'matches' => blank($p->panel_package) ? null : in_array($p->panel_package, $packages, true),
+                'server_group' => $p->serverGroup?->name,
             ]);
 
         // Bandingkan catatan Hosting Account kita dengan akun yang

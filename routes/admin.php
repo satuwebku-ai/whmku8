@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\Admin\OtpController;
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\BlogController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Admin\MailboxController;
 use App\Http\Controllers\Admin\ClientController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\HostingAccountController;
 use App\Http\Controllers\Admin\ImpersonateController;
 use App\Http\Controllers\Admin\InvoiceController;
+use App\Http\Controllers\Admin\KnowledgeBaseController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\NavMenuController;
 use App\Http\Controllers\Admin\PageController;
@@ -485,6 +487,39 @@ Route::middleware(['admin', 'check.status'])->group(function () {
             Route::get('edit/announcement/{announcement}', 'editBootstrap')->name('announcement.edit.page');
             Route::post('update/announcement/{announcement}', 'update')->name('announcement.update');
             Route::delete('delete/announcement/{announcement}', 'destroy')->name('announcement.delete');
+        });
+
+        // ── CMS: Blog dan Pusat Bantuan ──
+        Route::prefix('blog')->name('blog.')->controller(BlogController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+
+            Route::get('categories', 'categories')->name('categories');
+            Route::post('categories', 'storeCategory')->name('categories.store');
+            Route::post('categories/{category}', 'updateCategory')->name('categories.update');
+            Route::delete('categories/{category}', 'destroyCategory')->name('categories.destroy');
+
+            Route::get('{post}/edit', 'edit')->name('edit');
+            Route::post('{post}', 'update')->name('update');
+            Route::delete('{post}', 'destroy')->name('destroy');
+            Route::post('{post}/status', 'toggleStatus')->name('status');
+        });
+
+        Route::prefix('knowledge-base')->name('knowledge-base.')->controller(KnowledgeBaseController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+
+            Route::get('categories', 'categories')->name('categories');
+            Route::post('categories', 'storeCategory')->name('categories.store');
+            Route::post('categories/{category}', 'updateCategory')->name('categories.update');
+            Route::delete('categories/{category}', 'destroyCategory')->name('categories.destroy');
+
+            Route::get('{article}/edit', 'edit')->name('edit');
+            Route::post('{article}', 'update')->name('update');
+            Route::delete('{article}', 'destroy')->name('destroy');
+            Route::post('{article}/status', 'toggleStatus')->name('status');
         });
 
         // ── CMS: Banner Promo ──

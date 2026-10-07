@@ -48,7 +48,7 @@ class ServerGroupController extends Controller
     {
         return view('admin.server-groups.form', [
             'group'   => $serverGroup,
-            'servers' => $this->memberCandidates(),
+            'servers' => $this->memberCandidates($serverGroup),
             // server_id => ['priority' => n, 'is_active' => bool]
             'members' => $serverGroup->servers()->get()->mapWithKeys(fn ($s) => [$s->id => ['priority' => $s->pivot->priority, 'is_active' => (bool) $s->pivot->is_active]])->all(),
         ]);
@@ -61,7 +61,7 @@ class ServerGroupController extends Controller
         $data['is_active'] = $request->boolean('is_active');
 
         $serverGroup->update($data);
-        $serverGroup->servers()->sync($this->memberPayload($request));
+        $serverGroup->servers()->sync($this->memberPayload($request, $serverGroup));
 
         return redirect()->route('admin.server-groups.index')->with('success', 'Grup server berhasil diperbarui.');
     }
@@ -103,19 +103,37 @@ class ServerGroupController extends Controller
      * Server VM/VPS dikecualikan -- harga & tagihannya terikat ke server
      * tetap milik produk VPS, jadi tidak dipilih otomatis lewat grup.
      */
-    private function memberCandidates()
+    private function memberCandidates(?ServerGroup $group = null)
     {
-        return Server::whereNotIn('id', Server::cloud()->select('id'))
+        return Server::query()
+            ->where(function ($query) use ($group) {
+                $query->where(fn ($eligible) => $eligible->where('panel', 'cpanel')->whereNull('vps_provider'));
+
+                // Existing ineligible members stay visible so an admin can
+                // remove them deliberately instead of losing group data.
+                if ($group) {
+                    $query->orWhereHas('groups', fn ($groups) => $groups->whereKey($group->id));
+                }
+            })
             ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])
             ->orderBy('name')
             ->get();
     }
 
     /** Hasil centang + prioritas dari form -> payload sync() pivot. */
-    private function memberPayload(Request $request): array
+    private function memberPayload(Request $request, ?ServerGroup $group = null): array
     {
-        $ids = Server::whereNotIn('id', Server::cloud()->select('id'))
+        $ids = Server::query()
             ->whereIn('id', (array) $request->input('servers', []))
+            ->where(function ($query) use ($group) {
+                $query->where(fn ($eligible) => $eligible->where('panel', 'cpanel')->whereNull('vps_provider'));
+
+                // Preserve existing unsupported memberships unless the admin
+                // explicitly unchecks them in the edit form.
+                if ($group) {
+                    $query->orWhereHas('groups', fn ($groups) => $groups->whereKey($group->id));
+                }
+            })
             ->pluck('id');
 
         $priorities = (array) $request->input('priority', []);

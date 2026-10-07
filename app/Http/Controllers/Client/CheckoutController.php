@@ -293,8 +293,16 @@ class CheckoutController extends Controller
                     $issues[] = "Maaf, stok \"{$item['name']}\" sudah habis. Hapus item ini dari keranjang.";
                 }
 
-                if ($product?->server && in_array($product->server->panel, ['directadmin', 'plesk'], true)) {
-                    $issues[] = "Paket \"{$item['name']}\" belum dapat dipesan karena panel {$product->server->panel} belum didukung untuk provisioning otomatis.";
+                if ($product) {
+                    $selectedServer = app(\App\Services\Hosting\ServerSelector::class)->resolve($product)['server'];
+                    // Keep rejecting directly assigned unsupported panels
+                    // even when the server is currently unavailable and the
+                    // selector therefore returns null.
+                    $panel = $selectedServer?->panel ?? $product->server?->panel;
+
+                    if (in_array($panel, ['directadmin', 'plesk'], true)) {
+                        $issues[] = "Paket \"{$item['name']}\" belum dapat dipesan karena panel {$panel} belum didukung untuk provisioning otomatis.";
+                    }
                 }
             }
 
