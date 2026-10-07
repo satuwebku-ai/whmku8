@@ -51,6 +51,36 @@
     target.classList.add('active', 'show');
   });
 
+  /* ════════════ COLLAPSE ════════════
+     data-bs-toggle="collapse" + data-bs-target="#id" (atau href="#id").
+     Membuka/menutup elemen .collapse dan menyelaraskan aria-expanded pada
+     semua pemicunya. Elemen non-tombol (role="button") ikut bisa dioperasikan
+     lewat keyboard (Enter / Spasi). */
+  function collapseSelector(trigger) {
+    const sel = trigger.getAttribute('data-bs-target') || trigger.getAttribute('href');
+    return sel && sel.charAt(0) === '#' && sel.length > 1 ? sel : null;
+  }
+  document.addEventListener('click', function (e) {
+    const trigger = e.target.closest('[data-bs-toggle="collapse"]');
+    if (!trigger) return;
+    const sel = collapseSelector(trigger);
+    const target = sel ? document.querySelector(sel) : null;
+    if (!target) return;
+    e.preventDefault();
+    const open = !target.classList.contains('show');
+    target.classList.toggle('show', open);
+    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (t) {
+      if (collapseSelector(t) === sel) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const trigger = e.target.closest('[data-bs-toggle="collapse"][role="button"]');
+    if (!trigger || e.target !== trigger) return;
+    e.preventDefault();
+    trigger.click();
+  });
+
   /* ════════════ MODAL ════════════ */
   let modalBackdrop = null;
   function ensureBackdrop() {

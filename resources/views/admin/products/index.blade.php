@@ -44,7 +44,7 @@
     <div class="card border rounded-4 overflow-hidden mb-3">
       <div class="grp-head d-flex align-items-center gap-3 px-4 py-3" data-grp-toggle
            data-bs-toggle="collapse" data-bs-target="#grp{{ $group->id }}" role="button"
-           aria-expanded="true" aria-controls="grp{{ $group->id }}">
+           tabindex="0" aria-expanded="true" aria-controls="grp{{ $group->id }}">
         <i class="fa-solid fa-chevron-down grp-chevron text-muted"></i>
         <div class="flex-grow-1">
           <p class="fw-semibold text-dark mb-0">
@@ -71,13 +71,21 @@
 
       <div id="grp{{ $group->id }}" class="collapse show">
         <div class="table-responsive border-top">
-          <table class="table table-hover align-middle mb-0">
+          {{-- Lebar kolom tetap supaya semua grup sejajar --}}
+          <table class="table table-hover align-middle mb-0" style="table-layout:fixed;min-width:760px">
+            <colgroup>
+              <col>
+              <col style="width:150px">
+              <col style="width:110px">
+              <col style="width:100px">
+              <col style="width:210px">
+            </colgroup>
             <thead>
               <tr class="small text-uppercase text-muted">
-                <th class="px-4 py-3">Produk</th>
+                <th class="text-start px-4 py-3">Produk</th>
                 <th class="text-end py-3">Mulai Dari</th>
-                <th class="py-3">Domain</th>
-                <th class="py-3">Status</th>
+                <th class="text-start py-3">Domain</th>
+                <th class="text-start py-3">Status</th>
                 <th class="text-end px-4 py-3">Aksi</th>
               </tr>
             </thead>

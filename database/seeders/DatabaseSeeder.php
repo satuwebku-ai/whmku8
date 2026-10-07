@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminSeeder::class,
             RoleSeeder::class,
-            // AddonCatalogSeeder::class,
+            AddonCatalogSeeder::class,
         ]);
     }
 }
