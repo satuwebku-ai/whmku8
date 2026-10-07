@@ -24,40 +24,37 @@ class ProductController extends Controller
 
     private function indexData(Request $request): array
     {
-        // Produk VPS dibedakan dari produk hosting biasa lewat
-        // Product::scopeVpsType()/scopeHostingType() -- kategori
-        // (product_groups.type='vps') sebagai sumber utama, server cloud
-        // sebagai jaring pengaman. Query yang sama dipakai di beranda
-        // publik (CatalogController) supaya sebuah produk tidak bisa
-        // dianggap "hosting" di satu tempat dan "VPS" di tempat lain.
+        // Badge VPS di tiap baris produk: server cloud dikenali lewat
+        // Server::cloud() (lihat juga Product::scopeVpsType()).
         $cloudServerIds = Server::cloud()->pluck('id');
 
-        // Tab jenis produk berasal dari tabel product_types (dikelola admin),
-        // bukan lagi daftar tetap di kode. ?jenis=<slug> memfilter lewat kategori.
-        $productTypes = \App\Models\ProductType::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
-            ->each(fn ($pt) => $pt->products_count = Product::whereHas('category', fn ($c) => $c->where('product_type_id', $pt->id))->count());
-        $activeType = $request->filled('jenis') ? $productTypes->firstWhere('slug', $request->jenis) : null;
+        $search = trim((string) $request->search);
 
-        $products = Product::with('category')
-            ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%"))
-            ->when($request->category_id, fn ($q) => $q->where('product_category_id', $request->category_id))
-            ->when($activeType, fn ($q) => $q->whereHas('category', fn ($c) => $c->where('product_type_id', $activeType->id)))
-            ->when($request->type === 'vps', fn ($q) => $q->vpsType())
-            ->when($request->type === 'hosting', fn ($q) => $q->hostingType())
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->paginate(15)
-            ->withQueryString();
+        // Satu grup (product_groups) = satu tabel collapsible. Grup dan
+        // jenisnya (product_types) murni dari data yang diisi admin.
+        $groups = ProductGroup::with(['productType', 'products' => function ($q) use ($search) {
+            $q->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                ->orderBy('sort_order')
+                ->orderBy('name');
+        }])
+            ->when($request->category_id, fn ($q) => $q->whereKey($request->category_id))
+            ->get()
+            ->sortBy([
+                fn ($a, $b) => ($a->productType?->sort_order ?? PHP_INT_MAX) <=> ($b->productType?->sort_order ?? PHP_INT_MAX),
+                fn ($a, $b) => $a->sort_order <=> $b->sort_order,
+                fn ($a, $b) => strcasecmp($a->name, $b->name),
+            ])
+            ->values();
+
+        // Saat mencari, grup tanpa hasil tidak perlu ditampilkan.
+        if ($search !== '') {
+            $groups = $groups->filter(fn ($g) => $g->products->isNotEmpty())->values();
+        }
 
         $categories = ProductGroup::orderBy('name')->get();
+        $totalProducts = $groups->sum(fn ($g) => $g->products->count());
 
-        $counts = [
-            'all'     => Product::count(),
-            'vps'     => Product::vpsType()->count(),
-            'hosting' => Product::hostingType()->count(),
-        ];
-
-        return compact('products', 'categories', 'counts', 'cloudServerIds', 'productTypes');
+        return compact('groups', 'categories', 'cloudServerIds', 'totalProducts', 'search');
     }
 
     public function create(): View

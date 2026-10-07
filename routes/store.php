@@ -5,6 +5,7 @@ use App\Http\Controllers\Site\CatalogController;
 use App\Http\Controllers\Site\DomainSearchController;
 use App\Http\Controllers\Site\LicenseController;
 use App\Http\Controllers\Site\PremiumDomainController;
+use App\Models\ProductType;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,15 +16,18 @@ use Illuminate\Support\Facades\Route;
 | functions. The authenticated order submission remains in routes/client.php.
 | This file is loaded only on the public-site domain.
 */
-Route::controller(CatalogController::class)->group(function () {
+// Segmen {section} = slug jenis produk (tabel product_types), bukan daftar tetap.
+$catalogSections = ProductType::sectionPattern();
+
+Route::controller(CatalogController::class)->group(function () use ($catalogSections) {
     Route::get('hosting', 'indexBootstrap')->name('catalog.index');
     Route::get('vps', 'vpsBootstrap')->name('catalog.vps');
     Route::get('{section}/{category}', 'categoryBootstrap')
         ->name('catalog.category')
-        ->where('section', 'hosting|vps');
+        ->where('section', $catalogSections);
     Route::get('{section}/{category}/{product}', 'productBootstrap')
         ->name('catalog.product')
-        ->where('section', 'hosting|vps');
+        ->where('section', $catalogSections);
 });
 
 Route::controller(LicenseController::class)->prefix('lisensi')->name('license.')->group(function () {

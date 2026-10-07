@@ -226,7 +226,7 @@ class Product extends Model
      * SATU-SATUNYA definisi "produk VPS" -- dipakai di mana pun produk
      * perlu dikelompokkan VPS vs hosting biasa (beranda, katalog, admin).
      * Sumber utamanya kategori (product_groups.type = 'vps'), yang juga
-     * menentukan URL publik (ProductGroup::urlSection()) -- jadi
+     * menentukan jenis produk (product_types) -- jadi
      * kelompoknya konsisten dengan tautan yang dilihat pengunjung. Server
      * cloud dicek juga sebagai jaring pengaman untuk produk lama yang
      * kategorinya belum diisi type VPS tapi terlanjur dipasang di server

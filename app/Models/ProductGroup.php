@@ -22,23 +22,24 @@ class ProductGroup extends Model
     protected $fillable = ['name', 'slug', 'type', 'product_type_id', 'description', 'icon', 'is_active', 'sort_order'];
 
     /**
-     * Segmen URL publik untuk kategori ini -- "vps" atau "hosting".
-     * Dipakai supaya semua tautan otomatis benar tanpa tiap pemanggil
-     * perlu tahu jenis kategorinya.
+     * Jenis produk selalu ikut dimuat: segmen URL publik kategori ini
+     * diambil dari product_types.slug (data yang diisi admin), bukan
+     * ditentukan di kode.
      */
-    public function urlSection(): string
-    {
-        return ($this->type ?? 'hosting') === 'vps' ? 'vps' : 'hosting';
-    }
+    protected $with = ['productType'];
 
     public function publicUrl(): string
     {
-        return route('catalog.category', [$this->urlSection(), $this->slug]);
+        return $this->productType
+            ? route('catalog.category', [$this->productType->slug, $this->slug])
+            : route('catalog.index');
     }
 
     public function productUrl(Product $product): string
     {
-        return route('catalog.product', [$this->urlSection(), $this->slug, $product->slug]);
+        return $this->productType
+            ? route('catalog.product', [$this->productType->slug, $this->slug, $product->slug])
+            : route('catalog.index');
     }
 
     protected function casts(): array

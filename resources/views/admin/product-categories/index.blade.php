@@ -39,7 +39,7 @@
                 {{ $category->name }}
               </td>
               <td class="text-muted py-3" style="font-size:12px">
-                /{{ $category->urlSection() }}/{{ $category->slug }}
+                /{{ $category->productType?->slug }}/{{ $category->slug }}
                 <span class="badge {{ ($category->type ?? 'hosting') === 'vps' ? 'badge-soft-success' : 'badge-soft-secondary' }} ms-1" style="font-size:9px">
                   {{ $category->productType?->name ?? (($category->type ?? 'hosting') === 'vps' ? 'VPS' : 'Hosting') }}
                 </span>
