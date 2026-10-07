@@ -94,7 +94,9 @@
             ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'match' => ['admin.dashboard*'], 'icon' => 'M3 3h7v9H3zM14 3h7v5h-7zM14 10h7v11h-7zM3 14h7v7H3z'],
 
             ['label' => 'Penjualan', 'icon' => 'M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 'module' => 'sales', 'children' => [
-              ['label' => 'Produk', 'route' => 'admin.products.index', 'match' => ['admin.products.*', 'admin.product-categories.*', 'admin.product.*', 'admin.addons.*', 'admin.addon.*']],
+              ['label' => 'Produk',          'route' => 'admin.products.index', 'match' => ['admin.products.*', 'admin.product.*']],
+              ['label' => 'Kategori Produk', 'route' => 'admin.product-categories.index', 'match' => ['admin.product-categories.*']],
+              ['label' => 'Addon',           'route' => 'admin.addons.index', 'match' => ['admin.addons.*', 'admin.addon.*']],
               ['label' => 'Order',  'route' => 'admin.orders', 'match' => ['admin.order*']],
               ['label' => 'Kupon',  'route' => 'admin.coupons', 'match' => ['admin.coupon*']],
               ['label' => 'Affiliate', 'route' => 'admin.affiliate.index', 'match' => ['admin.affiliate.*']],
