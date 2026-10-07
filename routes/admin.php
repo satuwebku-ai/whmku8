@@ -318,6 +318,7 @@ Route::middleware(['admin', 'check.status'])->group(function () {
     //    klien. Modul: sales.
     Route::middleware('module:sales')->group(function () {
         Route::resource('product-categories', ProductCategoryController::class)->except('show');
+        Route::resource('product-types', \App\Http\Controllers\Admin\ProductTypeController::class)->except('show');
         Route::resource('addons', \App\Http\Controllers\Admin\AddonController::class)->except('show');
         Route::post('addon/status', [\App\Http\Controllers\Admin\AddonController::class, 'status'])->name('addon.status');
         Route::post('addons/{addon}/sync', [\App\Http\Controllers\Admin\AddonController::class, 'sync'])->name('addons.sync');

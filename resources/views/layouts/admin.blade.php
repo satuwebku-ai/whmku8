@@ -96,6 +96,7 @@
             ['label' => 'Penjualan', 'icon' => 'M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 'module' => 'sales', 'children' => [
               ['label' => 'Produk',          'route' => 'admin.products.index', 'match' => ['admin.products.*', 'admin.product.*']],
               ['label' => 'Kategori Produk', 'route' => 'admin.product-categories.index', 'match' => ['admin.product-categories.*']],
+              ['label' => 'Jenis Produk',    'route' => 'admin.product-types.index', 'match' => ['admin.product-types.*']],
               ['label' => 'Addon',           'route' => 'admin.addons.index', 'match' => ['admin.addons.*', 'admin.addon.*']],
               ['label' => 'Order',  'route' => 'admin.orders', 'match' => ['admin.order*']],
               ['label' => 'Kupon',  'route' => 'admin.coupons', 'match' => ['admin.coupon*']],

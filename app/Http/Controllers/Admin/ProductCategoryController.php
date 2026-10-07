@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\ProductGroup;
+use App\Models\ProductType;
 use App\Models\Server;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,14 +15,14 @@ class ProductCategoryController extends Controller
 {
     public function index(): View
     {
-        $categories = ProductGroup::withCount('products')->orderBy('sort_order')->orderBy('name')->paginate(15);
+        $categories = ProductGroup::with('productType')->withCount('products')->orderBy('sort_order')->orderBy('name')->paginate(15);
 
         return view('admin.product-categories.index', compact('categories'));
     }
 
     public function create(): View
     {
-        return view('admin.product-categories.form', ['category' => new ProductGroup()]);
+        return view('admin.product-categories.form', ['category' => new ProductGroup(), 'productTypes' => $this->typeOptions()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -38,7 +39,7 @@ class ProductCategoryController extends Controller
 
     public function edit(ProductGroup $productCategory): View
     {
-        return view('admin.product-categories.form', ['category' => $productCategory]);
+        return view('admin.product-categories.form', ['category' => $productCategory, 'productTypes' => $this->typeOptions($productCategory->product_type_id)]);
     }
 
     public function update(Request $request, ProductGroup $productCategory): RedirectResponse
@@ -55,7 +56,7 @@ class ProductCategoryController extends Controller
             $conflict = $this->typeChangeConflict($productCategory, $data['type']);
 
             if ($conflict) {
-                return back()->withInput()->withErrors(['type' => $conflict]);
+                return back()->withInput()->withErrors(['product_type_id' => $conflict]);
             }
         }
 
@@ -122,14 +123,27 @@ class ProductCategoryController extends Controller
 
     private function validated(Request $request, ?int $ignoreId = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'type'        => ['required', 'in:hosting,vps'],
+            'product_type_id' => ['required', 'exists:product_types,id'],
             'slug'        => ['nullable', 'string', 'max:255', 'unique:product_groups,slug' . ($ignoreId ? ",{$ignoreId}" : '')],
             'description' => ['nullable', 'string', 'max:500'],
             'icon'        => ['nullable', 'string', 'max:50'],
             'sort_order'  => ['nullable', 'integer', 'min:0'],
             'is_active'   => ['nullable', 'boolean'],
         ]);
+
+        // Kolom lama "type" (hosting|vps) tetap dipakai logika server/tagihan/URL;
+        // nilainya diturunkan dari perilaku (kind) jenis produk yang dipilih.
+        $data['type'] = ProductType::findOrFail($data['product_type_id'])->kind;
+
+        return $data;
+    }
+
+    /** Jenis aktif untuk dropdown, ditambah jenis yang sedang dipakai kategori ini (walau sudah nonaktif). */
+    private function typeOptions(?int $currentId = null)
+    {
+        return ProductType::where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($w) => $w->orWhere('id', $currentId)))
+            ->orderBy('sort_order')->orderBy('name')->get();
     }
 }

@@ -14,22 +14,25 @@
     </div>
   </div>
 
-  {{-- Pemisah jenis produk: hosting biasa vs VPS/cloud --}}
-  @php $t = request('type'); @endphp
+  {{-- Tab jenis produk: dibaca dari tabel product_types (Penjualan > Jenis Produk) --}}
+  @php $j = request('jenis'); $t = request('type'); @endphp
   <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a href="{{ route('admin.products.index') }}" class="px-3 py-2 rounded-pill small fw-medium text-decoration-none {{ ! $t ? 'text-white' : 'text-muted' }}" style="{{ ! $t ? 'background:#4f46e5' : 'background:#f1f5f9' }}">
+    <a href="{{ route('admin.products.index') }}" class="px-3 py-2 rounded-pill small fw-medium text-decoration-none {{ ! $j && ! $t ? 'text-white' : 'text-muted' }}" style="{{ ! $j && ! $t ? 'background:#4f46e5' : 'background:#f1f5f9' }}">
       Semua ({{ $counts['all'] }})
     </a>
-    <a href="{{ route('admin.products.index', ['type' => 'hosting']) }}" class="px-3 py-2 rounded-pill small fw-medium text-decoration-none {{ $t === 'hosting' ? 'text-white' : 'text-muted' }}" style="{{ $t === 'hosting' ? 'background:#4f46e5' : 'background:#f1f5f9' }}">
-      <i class="fa-solid fa-server" style="font-size:10px"></i> Hosting ({{ $counts['hosting'] }})
-    </a>
-    <a href="{{ route('admin.products.index', ['type' => 'vps']) }}" class="px-3 py-2 rounded-pill small fw-medium text-decoration-none {{ $t === 'vps' ? 'text-white' : 'text-muted' }}" style="{{ $t === 'vps' ? 'background:#059669' : 'background:#f1f5f9' }}">
-      <i class="fa-solid fa-cloud" style="font-size:10px"></i> VPS / Cloud ({{ $counts['vps'] }})
-    </a>
+    @foreach ($productTypes as $pt)
+      @php $on = $j === $pt->slug; @endphp
+      <a href="{{ route('admin.products.index', ['jenis' => $pt->slug]) }}" class="px-3 py-2 rounded-pill small fw-medium text-decoration-none {{ $on ? 'text-white' : 'text-muted' }}" style="{{ $on ? 'background:' . $pt->color : 'background:#f1f5f9' }}">
+        @if ($pt->icon)<i class="fa-solid {{ $pt->icon }}" style="font-size:10px"></i>@endif
+        {{ $pt->name }} ({{ $pt->products_count }})
+      </a>
+    @endforeach
+    <a href="{{ route('admin.product-types.index') }}" class="small text-muted text-decoration-none ms-1" title="Kelola jenis produk"><i class="fa-solid fa-gear" style="font-size:11px"></i></a>
   </div>
 
   <div class="card border rounded-4 overflow-hidden">
     <form method="GET" class="px-4 py-3 border-bottom d-flex flex-wrap align-items-center gap-2">
+      @if (request('jenis')) <input type="hidden" name="jenis" value="{{ request('jenis') }}"> @endif
       <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama produk..." class="form-control form-control-sm" style="max-width:16rem;flex:1 1 180px">
       <select name="category_id" class="form-select" style="padding:.25rem .6rem;font-size:.875rem;border-radius:.375rem;max-width:12rem" data-auto-submit>
         <option value="">Semua Kategori</option>

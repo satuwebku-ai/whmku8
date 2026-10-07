@@ -19,7 +19,7 @@ class ProductGroup extends Model
      */
     protected $table = 'product_groups';
 
-    protected $fillable = ['name', 'slug', 'type', 'description', 'icon', 'is_active', 'sort_order'];
+    protected $fillable = ['name', 'slug', 'type', 'product_type_id', 'description', 'icon', 'is_active', 'sort_order'];
 
     /**
      * Segmen URL publik untuk kategori ini -- "vps" atau "hosting".
@@ -49,6 +49,13 @@ class ProductGroup extends Model
     protected static function booted(): void
     {
         static::saving(function (ProductGroup $category) {
+            // Kategori yang dibuat tanpa memilih jenis (seeder, impor, dsb)
+            // otomatis memakai jenis pertama dengan perilaku yang sama.
+            if (blank($category->product_type_id)) {
+                $category->product_type_id = ProductType::where('kind', $category->type ?? 'hosting')
+                    ->orderBy('sort_order')->value('id');
+            }
+
             if (blank($category->slug)) {
                 $category->slug = static::uniqueSlug($category->name, $category->id);
             } else {
@@ -75,6 +82,12 @@ class ProductGroup extends Model
         // Nama FK lama dipertahankan agar kompatibel dengan data dan relasi
         // produk yang sudah berjalan.
         return $this->hasMany(Product::class, 'product_category_id');
+    }
+
+    /** Jenis produk (data di database) yang dipilih admin untuk kategori ini. */
+    public function productType(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ProductType::class, 'product_type_id');
     }
 
     public function scopeActive(Builder $query): Builder

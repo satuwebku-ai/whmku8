@@ -32,9 +32,16 @@ class ProductController extends Controller
         // dianggap "hosting" di satu tempat dan "VPS" di tempat lain.
         $cloudServerIds = Server::cloud()->pluck('id');
 
+        // Tab jenis produk berasal dari tabel product_types (dikelola admin),
+        // bukan lagi daftar tetap di kode. ?jenis=<slug> memfilter lewat kategori.
+        $productTypes = \App\Models\ProductType::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
+            ->each(fn ($pt) => $pt->products_count = Product::whereHas('category', fn ($c) => $c->where('product_type_id', $pt->id))->count());
+        $activeType = $request->filled('jenis') ? $productTypes->firstWhere('slug', $request->jenis) : null;
+
         $products = Product::with('category')
             ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%"))
             ->when($request->category_id, fn ($q) => $q->where('product_category_id', $request->category_id))
+            ->when($activeType, fn ($q) => $q->whereHas('category', fn ($c) => $c->where('product_type_id', $activeType->id)))
             ->when($request->type === 'vps', fn ($q) => $q->vpsType())
             ->when($request->type === 'hosting', fn ($q) => $q->hostingType())
             ->orderBy('sort_order')
@@ -50,7 +57,7 @@ class ProductController extends Controller
             'hosting' => Product::hostingType()->count(),
         ];
 
-        return compact('products', 'categories', 'counts', 'cloudServerIds');
+        return compact('products', 'categories', 'counts', 'cloudServerIds', 'productTypes');
     }
 
     public function create(): View
