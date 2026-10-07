@@ -75,7 +75,7 @@ class NotificationTemplateController extends Controller
             'dashboard_url' => route('client.dashboard'),
             'services_url' => route('client.services'),
             'balance_url' => route('client.balance'),
-            'invoice_url' => route('client.invoices.show', 1),
+            'invoice_url' => route('client.invoices.show', ['invoice' => 1]),
             'invoice_number' => 'INV-2026-0042',
             'total' => 'Rp 150.000',
             'due_date' => now()->addDays(7)->format('d M Y'),

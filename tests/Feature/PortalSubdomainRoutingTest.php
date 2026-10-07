@@ -2,44 +2,64 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PortalSubdomainRoutingTest extends TestCase
 {
-    public function test_client_and_admin_login_routes_use_their_configured_hosts(): void
-    {
-        $clientUrl = route('client.login');
-        $adminUrl = route('admin.login');
-        $serverEditUrl = route('admin.servers.edit', ['server' => '__ID__']);
+    use RefreshDatabase;
 
-        $this->assertSame(config('portals.client_host'), parse_url($clientUrl, PHP_URL_HOST));
-        $this->assertSame(config('portals.admin_host'), parse_url($adminUrl, PHP_URL_HOST));
-        $this->assertSame('/login', parse_url($clientUrl, PHP_URL_PATH));
-        $this->assertSame('/login', parse_url($adminUrl, PHP_URL_PATH));
-        $this->assertSame(config('portals.admin_host'), parse_url($serverEditUrl, PHP_URL_HOST));
-        $this->assertSame('/servers/__ID__/edit', parse_url($serverEditUrl, PHP_URL_PATH));
+    public function test_old_admin_login_url_returns_to_the_public_homepage(): void
+    {
+        $this->get('http://localhost/admin/login')
+            ->assertRedirect(route('home'));
     }
 
-    public function test_portal_roots_redirect_guests_to_the_matching_login_host(): void
+    public function test_old_admin_links_other_than_login_move_to_the_admin_subdomain(): void
     {
-        $this->get('http://'.config('portals.client_host').'/')
-            ->assertRedirect(route('client.login'));
+        $this->get('http://localhost/admin/dashboard?tab=activity')
+            ->assertRedirect('https://admin.localhost/dashboard?tab=activity');
+    }
 
-        $this->get('http://'.config('portals.admin_host').'/')
+    public function test_admin_login_is_available_on_the_admin_subdomain_root_path(): void
+    {
+        $this->get(route('admin.login'))
+            ->assertOk();
+    }
+
+    public function test_client_login_is_available_on_the_member_subdomain(): void
+    {
+        $this->get(route('client.login'))
+            ->assertOk();
+    }
+
+    public function test_old_client_login_url_moves_to_the_member_subdomain(): void
+    {
+        $this->get('http://localhost/client/login?from=header')
+            ->assertRedirect('https://member.localhost/login?from=header');
+    }
+
+    public function test_old_portal_prefixes_on_each_subdomain_are_removed(): void
+    {
+        $this->get('https://admin.localhost/admin/login')
+            ->assertRedirect('https://admin.localhost/login');
+
+        $this->get('https://member.localhost/client/login')
+            ->assertRedirect('https://member.localhost/login');
+    }
+
+    public function test_guests_on_each_portal_are_sent_to_the_matching_login(): void
+    {
+        $this->get('http://admin.localhost/')
             ->assertRedirect(route('admin.login'));
+
+        $this->get('http://member.localhost/')
+            ->assertRedirect(route('client.login'));
     }
 
-    public function test_legacy_admin_urls_redirect_to_public_home_and_client_urls_redirect_to_the_new_host(): void
+    public function test_public_site_routes_are_not_exposed_on_the_portal_hosts(): void
     {
-        config(['app.url' => 'https://satucloudhosting.com']);
-
-        $this->get('/admin/login')
-            ->assertRedirect('https://satucloudhosting.com/');
-
-        $this->get('/admin/tickets?from=bookmark')
-            ->assertRedirect('https://satucloudhosting.com/');
-
-        $this->get('/client/services')
-            ->assertRedirect(route('client.services'));
+        $this->get('http://admin.localhost/hosting')->assertNotFound();
+        $this->get('http://member.localhost/hosting')->assertNotFound();
     }
 }

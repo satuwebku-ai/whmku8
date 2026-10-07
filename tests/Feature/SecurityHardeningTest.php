@@ -197,7 +197,7 @@ class SecurityHardeningTest extends TestCase
         $this->assertSame(1, substr_count($csp, 'script-src '));
 
         config(['security.csp_img_allow_any_https' => true]);
-        $this->assertMatchesRegularExpression('/(^|\s)https:(\s|$)/', $this->cspDirective($this->cspFor('/admin/login'), 'img-src'));
+        $this->assertMatchesRegularExpression('/(^|\s)https:(\s|$)/', $this->cspDirective($this->cspFor(route('admin.login')), 'img-src'));
     }
 
     public function test_every_external_script_and_stylesheet_host_in_views_is_allowed_by_the_csp(): void

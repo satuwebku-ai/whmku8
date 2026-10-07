@@ -37,8 +37,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Admin Routes
 |--------------------------------------------------------------------------
-| Semua route di sini terikat ke host admin yang dikonfigurasi di
-| config/portals.php dan diberi name prefix "admin." lewat web.php.
+| Semua route di sini diberi name prefix "admin." di web.php dan
+| dilayani dari subdomain pengelola tanpa prefix URL "/admin".
 |
 | Order/Invoice/Hosting Account/Domain/Klien memakai pola: daftar per-status
 | sebagai halaman terpisah + halaman detail + endpoint aksi terpisah

@@ -8,35 +8,96 @@ use App\Http\Controllers\Site\PremiumDomainController;
 use App\Http\Controllers\Site\PromoController;
 use App\Http\Controllers\Site\ChatController as SiteChatController;
 use App\Http\Controllers\Site\PageController as SitePageController;
-use App\Http\Controllers\Site\LegacyPortalRedirectController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Admin and client portals
+|--------------------------------------------------------------------------
+| Keep the existing /admin and /client route names, but serve their routes
+| from separate subdomains without those old path prefixes.
+*/
+Route::domain(config('portal_domains.admin'))
+    ->name('admin.')
+    ->group(base_path('routes/admin.php'));
+
+Route::domain(config('portal_domains.admin'))->group(function () {
+    Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
+        ->middleware('throttle:60,1');
+
+    // Accept old links that still include /admin/ on the admin subdomain.
+    Route::any('admin/{path?}', function (Request $request, ?string $path = null) {
+        $target = 'https://'.config('portal_domains.admin').'/'.ltrim((string) $path, '/');
+        if ($request->getQueryString()) {
+            $target .= '?'.$request->getQueryString();
+        }
+
+        return redirect()->away($target, 308);
+    })->where('path', '.*');
+
+    // Do not let public-site routes render on the admin host.
+    Route::any('{path?}', static fn () => abort(404))->where('path', '.*');
+});
+
+Route::domain(config('portal_domains.client'))
+    ->name('client.')
+    ->group(base_path('routes/client.php'));
+
+Route::domain(config('portal_domains.client'))->group(function () {
+    Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
+        ->middleware('throttle:60,1');
+
+    // Accept old links that still include /client/ on the client subdomain.
+    Route::any('client/{path?}', function (Request $request, ?string $path = null) {
+        $target = 'https://'.config('portal_domains.client').'/'.ltrim((string) $path, '/');
+        if ($request->getQueryString()) {
+            $target .= '?'.$request->getQueryString();
+        }
+
+        return redirect()->away($target, 308);
+    })->where('path', '.*');
+
+    // Do not let public-site routes render on the client host.
+    Route::any('{path?}', static fn () => abort(404))->where('path', '.*');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Public website and legacy portal links
+|--------------------------------------------------------------------------
+*/
+Route::domain(config('portal_domains.public'))->group(function () {
+Route::any('admin/{path?}', function (Request $request, ?string $path = null) {
+    // The old public-site admin login URL must return to the public homepage.
+    if ($path === 'login') {
+        return redirect()->route('home');
+    }
+
+    // Other old admin links are kept useful by moving them to the admin host.
+    $target = 'https://'.config('portal_domains.admin').'/'.ltrim((string) $path, '/');
+    if ($request->getQueryString()) {
+        $target .= '?'.$request->getQueryString();
+    }
+
+    return redirect()->away($target, 308);
+})->where('path', '.*');
+
+Route::any('client/{path?}', function (Request $request, ?string $path = null) {
+    // Move the old client portal URLs to the member host, preserving the page
+    // and query parameters (including email-verification and OAuth state).
+    $target = 'https://'.config('portal_domains.client').'/'.ltrim((string) $path, '/');
+    if ($request->getQueryString()) {
+        $target .= '?'.$request->getQueryString();
+    }
+
+    return redirect()->away($target, 308);
+})->where('path', '.*');
 
 Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
     ->middleware('throttle:60,1')
     ->name('csp-report');
 
-// Panel klien dan admin memakai host terpisah; nama route internal
-// (client.* / admin.*) tetap sama, tetapi tidak lagi memakai prefix URL.
-Route::domain(config('portals.admin_host'))
-    ->name('admin.')
-    ->group(base_path('routes/admin.php'));
-
-Route::domain(config('portals.client_host'))
-    ->name('client.')
-    ->group(base_path('routes/client.php'));
-
-// Alamat portal lama tetap berfungsi sebagai pengalihan GET ke subdomain
-// yang benar. POST tidak diteruskan agar data formulir/login tidak dipindah
-// lintas host oleh pengalihan.
-Route::get('admin/{path?}', [LegacyPortalRedirectController::class, 'admin'])
-    ->where('path', '.*')
-    ->name('legacy.admin');
-
-Route::get('client/{path?}', [LegacyPortalRedirectController::class, 'client'])
-    ->where('path', '.*')
-    ->name('legacy.client');
-
-// Situs publik tetap memakai root domain utama.
 Route::get('/', [CatalogController::class, 'homeBootstrap'])->name('home');
 
 // Logo, favicon, gambar banner — dilayani lewat Laravel (bukan file
@@ -187,9 +248,9 @@ Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'fini
 | didaftarkan lebih awal, ia akan "merebut" alamat yang seharusnya milik
 | route lain seperti /hosting atau /keranjang.
 |
-| Route portal klien dan admin berada di host masing-masing dan sudah
-| didaftarkan di atas. Pengalihan URL lama /client/... dan /admin/... juga
-| berada di atas catch-all ini agar alamat lama tetap menuju portal benar.
+| Route multi-segmen otomatis aman — {slug} tanpa akhiran khusus tidak
+| pernah cocok dengan path yang mengandung tanda "/". Route CMS ini hanya
+| didaftarkan pada domain publik; portal memakai domain terpisah di atas.
 |
 | Sebagai lapis pengaman kedua, CmsPage::RESERVED_SLUGS mencegah slug baru
 | dibuat dengan nama yang bisa bentrok sejak awal — lihat app/Models/Page.php.
@@ -197,3 +258,4 @@ Route::match(['get', 'post'], 'payment/finish', [WebhookController::class, 'fini
 Route::get('{slug}', [SitePageController::class, 'showBootstrap'])
     ->name('page.show')
     ->where('slug', '[a-z0-9\-]+');
+});
