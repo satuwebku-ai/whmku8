@@ -101,4 +101,21 @@ return [
     '2029_09_04_000000_create_custom_premium_domains_table' => '2026_01_01_000073_create_custom_premium_domains_table',
     // Kolom promo kupon dilebur ke create_coupons_table.
     '2026_01_01_000074_add_promo_fields_to_coupons_table' => null,
+    // Inbox Email (inbound_emails, mail_threads, mail_messages, mail_templates)
+    // dilebur jadi satu migrasi; kolom tambahan dilebur ke migrasi tabel induknya.
+    '2026_10_01_000074_create_inbound_emails_table' => null,
+    '2026_10_01_000075_create_mail_threads_tables' => '2026_01_01_000074_create_mail_threads_tables',
+    '2026_10_01_000076_link_mail_threads_to_chat' => null,
+    '2026_10_01_000077_create_mail_templates_and_auto_flag' => null,
+    '2026_10_01_000078_extend_reply_templates_for_ai' => null,
+    '2026_10_02_000079_add_panel_suspend_error_to_hosting_accounts' => null,
+    '2026_10_03_000080_add_idle_prompt_to_chats_and_tickets' => null,
+    '2026_10_03_000081_add_idle_prompt_to_mail_threads' => null,
+    '2026_10_03_000082_add_credentials_email_status_to_hosting_accounts' => null,
+    '2026_10_03_000083_add_profile_security_to_clients' => null,
+    '2026_10_03_000084_make_credits_type_a_string' => null,
+    '2026_10_07_000085_add_server_group_selection' => null,
+    '2026_10_07_000086_create_server_group_server_table' => null,
+    '2026_10_07_000087_add_pending_upgrade_price_to_hosting_accounts' => null,
+    '2026_10_07_000087_create_product_types_table' => null,
 ];
