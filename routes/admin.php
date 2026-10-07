@@ -248,6 +248,7 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::post('servers/{server}/branding/reset', [ServerController::class, 'resetBranding'])->name('servers.branding.reset');
         Route::get('servers/{server}/diagnostics', [ServerController::class, 'diagnosticsBootstrap'])->name('servers.diagnostics');
         Route::post('servers/{server}/sync-cost', [ServerController::class, 'syncCost'])->name('servers.sync-cost');
+        Route::resource('server-groups', \App\Http\Controllers\Admin\ServerGroupController::class)->except('show');
 
         // ── Registrar & TLD Pricing (Fase 4) ──
         Route::resource('registrars', RegistrarController::class)->except('show');

@@ -146,10 +146,36 @@
       </div>
     </div>
 
+    {{-- Grup & prioritas: hanya server hosting (cPanel dst), bukan VPS. --}}
+    <div class="row g-3 mb-3" id="rowGroup">
+      <div class="col-sm-8">
+        <label class="form-label small fw-medium text-dark">Grup Server (opsional)</label>
+        <select name="server_group_id" class="form-select" style="{{ $selectStyle }}">
+          <option value="">— Tanpa grup —</option>
+          @foreach (($groups ?? collect()) as $grp)
+            <option value="{{ $grp->id }}" @selected(old('server_group_id', $server->server_group_id) == $grp->id)>{{ $grp->name }}</option>
+          @endforeach
+        </select>
+        <p class="text-muted mt-1 mb-0" style="font-size:11px">
+          Produk yang memakai grup ini akan otomatis ditempatkan ke salah satu server di dalamnya.
+          <a href="{{ route('admin.server-groups.create') }}" target="_blank">Buat grup baru →</a>
+        </p>
+        @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label small fw-medium text-dark">Prioritas</label>
+        <input type="number" min="1" max="999" name="priority" value="{{ old('priority', $server->priority ?? 10) }}" class="form-control form-control-sm">
+        <p class="text-muted mt-1 mb-0" style="font-size:11px">Angka kecil = didahulukan.</p>
+        @error('priority') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
+      </div>
+    </div>
+
     <div class="row g-3 mb-3 align-items-center" id="rowGeneral">
       <div class="col-sm-6">
         <label class="form-label small fw-medium text-dark">Kapasitas Maks. Akun (opsional)</label>
-        <input type="number" name="max_accounts" value="{{ old('max_accounts', $server->max_accounts) }}" class="form-control form-control-sm">
+        <input type="number" min="1" name="max_accounts" value="{{ old('max_accounts', $server->max_accounts) }}" class="form-control form-control-sm">
+        <p class="text-muted mt-1 mb-0" style="font-size:11px">Kalau penuh, order baru tidak ditempatkan ke server ini lagi.</p>
+        @error('max_accounts') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
       </div>
       <div class="col-sm-6 d-flex align-items-center gap-4">
         <label class="d-flex align-items-center gap-2 small text-dark mb-0">
@@ -159,6 +185,10 @@
         <label class="d-flex align-items-center gap-2 small text-dark mb-0">
           <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $server->is_active ?? true)) class="form-check-input" style="margin-top:0">
           Aktif
+        </label>
+        <label class="d-flex align-items-center gap-2 small text-dark mb-0" title="Server tidak menerima order baru, akun yang sudah ada tetap bisa dikelola">
+          <input type="checkbox" name="is_maintenance" value="1" @checked(old('is_maintenance', $server->is_maintenance ?? false)) class="form-check-input" style="margin-top:0">
+          Maintenance
         </label>
       </div>
     </div>
@@ -280,6 +310,7 @@
         const f = cfg ? cfg.fields : {};
 
         show(el.vpsWrap, isVps);
+        show($('rowGroup'), !isVps);
         vpsSelect.required = isVps;
         setHint(cfg);
 

@@ -92,6 +92,7 @@ class ProductController extends Controller
     {
         $data = $this->validated($request, $ignoreId);
         $this->assertCategoryMatchesServer($data);
+        $data = $this->normalizedServerGroup($data);
         $data['billing_mode'] = $this->normalizedBillingMode($data);
         $data = $this->withVmSpec($request, $data);
         $this->assertHasPrice($data);
@@ -123,6 +124,22 @@ class ProductController extends Controller
         }
     }
 
+    /**
+     * Grup Server hanya berlaku untuk produk hosting. Produk VPS (server
+     * cloud) selalu memakai server tunggalnya, jadi grup dibuang kalau
+     * kategori/server-nya VPS -- supaya tidak ada dua sumber server.
+     */
+    private function normalizedServerGroup(array $data): array
+    {
+        $isCloudServer = ! empty($data['server_id']) && Server::cloud()->whereKey($data['server_id'])->exists();
+
+        if ($isCloudServer || empty($data['server_group_id'])) {
+            $data['server_group_id'] = null;
+        }
+
+        return $data;
+    }
+
     private function savedRedirect(string $message, array $warnings): RedirectResponse
     {
         $redirect = redirect()->route('admin.products.index')->with('success', $message);
@@ -138,6 +155,7 @@ class ProductController extends Controller
             'product' => $product,
             'categories' => ProductGroup::orderBy('name')->get(),
             'servers' => $servers,
+            'serverGroups' => \App\Models\ServerGroup::where('is_active', true)->orderBy('name')->get(),
             'vpsServerMeta' => $this->vpsServerMeta($servers),
         ]);
     }
@@ -249,6 +267,7 @@ class ProductController extends Controller
             'setup_fee'           => ['nullable', 'numeric', 'min:0'],
             'domain_option'       => ['required', 'in:required,optional,none'],
             'server_id'           => ['nullable', 'exists:servers,id'],
+            'server_group_id'     => ['nullable', 'exists:server_groups,id'],
             'panel_package'       => ['nullable', 'string', 'max:500'],
             'billing_mode'        => ['nullable', 'in:invoice,deposit'],
             'pricing_mode'        => ['nullable', 'in:manual,markup'],

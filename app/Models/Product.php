@@ -16,7 +16,7 @@ class Product extends Model
     protected $fillable = [
         'product_category_id', 'name', 'slug', 'tagline', 'description', 'features',
         'price_monthly', 'price_quarterly', 'price_semi_annually', 'price_annually', 'price_custom', 'setup_fee',
-        'custom_cycle_days', 'domain_option', 'server_id', 'panel_package', 'billing_mode',
+        'custom_cycle_days', 'domain_option', 'server_id', 'server_group_id', 'panel_package', 'billing_mode',
         'pricing_mode', 'markup_percent', 'price_per_vcpu_hour', 'price_per_ram_gb_hour',
         'price_per_storage_gb_hour', 'price_per_backup_gb_hour', 'price_per_snapshot_gb_hour',
         'price_windows_license_per_vcpu_hour',
@@ -90,6 +90,11 @@ class Product extends Model
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);
+    }
+
+    public function serverGroup(): BelongsTo
+    {
+        return $this->belongsTo(ServerGroup::class, 'server_group_id');
     }
 
     public function orders(): HasMany

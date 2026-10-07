@@ -11,9 +11,15 @@ class Server extends Model
 {
     use HasFactory;
 
+    /**
+     * Status akun hosting yang TIDAK lagi memakai kapasitas server
+     * (dipakai menghitung Kapasitas Maks. Akun).
+     */
+    public const INACTIVE_ACCOUNT_STATUSES = ['cancelled', 'terminated'];
+
     protected $fillable = [
         'name', 'hostname', 'ns1', 'ns2', 'port', 'panel', 'vps_provider', 'api_username', 'api_token', 'server_group_id',
-        'verify_ssl', 'max_accounts', 'is_active', 'last_checked_at', 'last_check_status',
+        'verify_ssl', 'max_accounts', 'priority', 'is_active', 'is_maintenance', 'last_checked_at', 'last_check_status',
         'price_per_vcpu_hour', 'price_per_ram_gb_hour', 'price_per_storage_gb_hour',
         'price_per_backup_gb_hour', 'price_per_snapshot_gb_hour', 'price_windows_license_per_vcpu_hour',
         'pricing_mode', 'markup_percent', 'cost_cache', 'cost_cached_at', 'cost_fx_rate',
@@ -32,6 +38,7 @@ class Server extends Model
             'cost_fx_rate'   => 'decimal:4',
             'verify_ssl'     => 'boolean',
             'is_active'      => 'boolean',
+            'is_maintenance' => 'boolean',
             'last_checked_at' => 'datetime',
         ];
     }
@@ -44,6 +51,47 @@ class Server extends Model
     public function group(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(ServerGroup::class, 'server_group_id');
+    }
+
+    /** Server yang boleh menerima order BARU: aktif dan tidak sedang maintenance. */
+    public function scopeAcceptingNewAccounts(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where('is_maintenance', false);
+    }
+
+    /** Jumlah akun yang benar-benar memakai kapasitas (tanpa yang dibatalkan/terminated). */
+    public function activeAccountsCount(): int
+    {
+        return $this->hostingAccounts()
+            ->whereNotIn('status', self::INACTIVE_ACCOUNT_STATUSES)
+            ->count();
+    }
+
+    /** True kalau Kapasitas Maks. Akun belum diisi, atau masih ada ruang. */
+    public function hasCapacity(): bool
+    {
+        return $this->max_accounts === null || $this->activeAccountsCount() < $this->max_accounts;
+    }
+
+    /**
+     * Alasan server ini tidak bisa menerima order baru, atau null kalau bisa.
+     * Dipakai untuk pesan yang jelas ke admin (bukan gagal diam-diam).
+     */
+    public function unavailableReason(): ?string
+    {
+        if (! $this->is_active) {
+            return "Server {$this->name} nonaktif.";
+        }
+
+        if ($this->is_maintenance) {
+            return "Server {$this->name} sedang maintenance.";
+        }
+
+        if (! $this->hasCapacity()) {
+            return "Server {$this->name} sudah penuh ({$this->max_accounts} akun).";
+        }
+
+        return null;
     }
 
     /**
