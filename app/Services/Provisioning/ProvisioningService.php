@@ -833,6 +833,13 @@ class ProvisioningService
 
         $newProduct = $hosting->pendingUpgradeProduct;
         $oldProductName = $hosting->product?->name ?? $hosting->package;
+        $targetCyclePrice = $hosting->pending_upgrade_price !== null
+            ? (float) $hosting->pending_upgrade_price
+            : $newProduct->priceForCycle($hosting->billing_cycle);
+
+        if ($targetCyclePrice === null) {
+            throw new \RuntimeException('Harga paket tujuan tidak tersedia untuk siklus tagihan layanan ini.');
+        }
 
         // Akun otomatis (terhubung server) diganti paketnya sungguhan
         // lewat WHM. Akun manual (tanpa server) cukup dicatat di sistem —
@@ -855,9 +862,10 @@ class ProvisioningService
         $hosting->update([
             'product_id' => $newProduct->id,
             'package' => $newProduct->panel_package ?: $newProduct->name,
-            'price' => $newProduct->priceForCycle($hosting->billing_cycle),
+            'price' => $targetCyclePrice,
             'pending_upgrade_product_id' => null,
             'pending_upgrade_invoice_id' => null,
+            'pending_upgrade_price' => null,
         ]);
 
         ActivityLog::record(
@@ -911,7 +919,7 @@ class ProvisioningService
                 }
 
                 $hosting->update([
-                    'next_due_date' => $hosting->nextCycleDate(),
+                    'next_due_date' => $hosting->nextCycleDate($invoice->paid_at ?? now()),
                     'renewal_invoice_id' => null,
                     'status' => $wasSuspended ? 'active' : $hosting->status,
                 ]);

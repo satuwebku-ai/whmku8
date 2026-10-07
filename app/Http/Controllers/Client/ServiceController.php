@@ -811,11 +811,14 @@ class ServiceController extends Controller
     /**
      * Batalkan permintaan upgrade yang belum dibayar.
      */
-    public function cancelUpgrade(HostingAccount $service): RedirectResponse
+    public function cancelUpgrade(
+        HostingAccount $service,
+        \App\Services\Billing\InvoiceService $invoices,
+    ): RedirectResponse
     {
         $this->authorizeOwner($service);
 
-        $result = DB::transaction(function () use ($service): array {
+        $result = DB::transaction(function () use ($service, $invoices): array {
             $current = HostingAccount::query()->lockForUpdate()->findOrFail($service->id);
 
             if (! $current->pending_upgrade_invoice_id) {
@@ -830,11 +833,14 @@ class ServiceController extends Controller
 
             // Invoice-nya ikut dibatalkan supaya tidak menggantung sebagai
             // tagihan yatim yang tidak akan pernah diproses.
-            $invoice?->update(['status' => 'cancelled']);
+            if ($invoice) {
+                $invoices->cancel($invoice);
+            }
 
             $current->update([
                 'pending_upgrade_product_id' => null,
                 'pending_upgrade_invoice_id' => null,
+                'pending_upgrade_price' => null,
             ]);
 
             return ['success' => true];

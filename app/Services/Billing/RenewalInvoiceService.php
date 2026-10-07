@@ -32,10 +32,18 @@ class RenewalInvoiceService
             }
 
             $amount = $hosting->renewalAmount();
+            $invoiceDueDate = $hosting->next_due_date;
+            if ($invoiceDueDate && $invoiceDueDate->lt(today())) {
+                // Catch up safely if cron missed its normal H-7 window or a
+                // cancelled invoice released the service. Do not create a new
+                // invoice that is already weeks overdue on the day it appears.
+                $invoiceDueDate = today();
+            }
+
             $invoice = $this->createInvoice(
                 $hosting->client_id,
                 $amount,
-                $hosting->next_due_date,
+                $invoiceDueDate,
             );
 
             InvoiceItem::create([
