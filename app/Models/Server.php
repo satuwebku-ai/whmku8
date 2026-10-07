@@ -48,15 +48,19 @@ class Server extends Model
         return $this->hasMany(HostingAccount::class);
     }
 
-    public function group(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    /** Grup tempat server ini menjadi anggota (satu server boleh di banyak grup). */
+    public function groups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->belongsTo(ServerGroup::class, 'server_group_id');
+        return $this->belongsToMany(ServerGroup::class, 'server_group_server')
+            ->withPivot(['priority', 'is_active'])
+            ->withTimestamps();
     }
 
     /** Server yang boleh menerima order BARU: aktif dan tidak sedang maintenance. */
     public function scopeAcceptingNewAccounts(Builder $query): Builder
     {
-        return $query->where('is_active', true)->where('is_maintenance', false);
+        // Kolom dikualifikasi: tabel pivot server_group_server juga punya is_active.
+        return $query->where('servers.is_active', true)->where('servers.is_maintenance', false);
     }
 
     /** Jumlah akun yang benar-benar memakai kapasitas (tanpa yang dibatalkan/terminated). */

@@ -33,8 +33,8 @@
             <tr>
               <td class="px-4 py-3 fw-medium text-dark">
                 {{ $server->name }}
-                @if ($server->group)
-                  <br><span class="text-muted fw-normal" style="font-size:11px"><i class="fa-solid fa-layer-group"></i> {{ $server->group->name }}</span>
+                @if ($server->groups->isNotEmpty())
+                  <br><span class="text-muted fw-normal" style="font-size:11px"><i class="fa-solid fa-layer-group"></i> {{ $server->groups->pluck('name')->join(', ') }}</span>
                 @endif
               </td>
               <td class="text-muted py-3">

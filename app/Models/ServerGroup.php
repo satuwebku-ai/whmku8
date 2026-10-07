@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ServerGroup extends Model
@@ -21,9 +22,12 @@ class ServerGroup extends Model
         return ['is_active' => 'boolean'];
     }
 
-    public function servers(): HasMany
+    /** Server anggota grup (many-to-many), dengan prioritas per grup di pivot. */
+    public function servers(): BelongsToMany
     {
-        return $this->hasMany(Server::class);
+        return $this->belongsToMany(Server::class, 'server_group_server')
+            ->withPivot(['priority', 'is_active'])
+            ->withTimestamps();
     }
 
     public function products(): HasMany
@@ -48,11 +52,14 @@ class ServerGroup extends Model
         }
 
         $candidates = $this->servers()
+            ->wherePivot('is_active', true)
             ->acceptingNewAccounts()
             ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])
             ->withMax('hostingAccounts as last_assigned_at', 'created_at')
             ->get()
-            ->filter(fn (Server $s) => $s->max_accounts === null || $s->active_accounts_count < $s->max_accounts);
+            ->filter(fn (Server $s) => $s->max_accounts === null || $s->active_accounts_count < $s->max_accounts)
+            // Prioritas diambil dari keanggotaan di grup ini (pivot), bukan dari server.
+            ->each(fn (Server $s) => $s->group_priority = (int) $s->pivot->priority);
 
         if ($candidates->isEmpty()) {
             return null;
@@ -60,11 +67,11 @@ class ServerGroup extends Model
 
         $sorted = match ($this->selection_mode) {
             // Prioritas dulu; kalau seri, yang lebih lega.
-            'priority' => $candidates->sortBy([['priority', 'asc'], ['active_accounts_count', 'asc'], ['id', 'asc']]),
+            'priority' => $candidates->sortBy([['group_priority', 'asc'], ['active_accounts_count', 'asc'], ['id', 'asc']]),
             // Yang terakhir kebagian order paling lama (atau belum pernah) maju duluan.
             'round_robin' => $candidates->sortBy([['last_assigned_at', 'asc'], ['id', 'asc']]),
             // Bawaan: paling sedikit akun; kalau seri, prioritas lalu id.
-            default => $candidates->sortBy([['active_accounts_count', 'asc'], ['priority', 'asc'], ['id', 'asc']]),
+            default => $candidates->sortBy([['active_accounts_count', 'asc'], ['group_priority', 'asc'], ['id', 'asc']]),
         };
 
         return $sorted->first();

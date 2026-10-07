@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Server;
-use App\Models\ServerGroup;
 use App\Services\Hosting\HostingPanelFactory;
 use App\Services\Vps\VpsProviderFactory;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +15,7 @@ class ServerController extends Controller
 {
     public function index(): View
     {
-        $servers = Server::with('group')
+        $servers = Server::with('groups')
             ->withCount('hostingAccounts')
             // Akun yang benar-benar memakai kapasitas (tanpa cancelled/terminated).
             ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])
@@ -28,7 +27,7 @@ class ServerController extends Controller
 
     public function create(): View
     {
-        return view('admin.servers.form', ['server' => new Server(), 'groups' => ServerGroup::orderBy('name')->get()]);
+        return view('admin.servers.form', ['server' => new Server()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -39,7 +38,6 @@ class ServerController extends Controller
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active', true);
         $data['is_maintenance'] = $request->boolean('is_maintenance');
-        $data['priority'] = $data['priority'] ?? 10;
 
         Server::create($data);
 
@@ -48,7 +46,7 @@ class ServerController extends Controller
 
     public function edit(Server $server): View
     {
-        return view('admin.servers.form', ['server' => $server, 'groups' => ServerGroup::orderBy('name')->get()]);
+        return view('admin.servers.form', ['server' => $server->load('groups')]);
     }
 
     public function update(Request $request, Server $server): RedirectResponse
@@ -59,7 +57,6 @@ class ServerController extends Controller
         $data['verify_ssl'] = $request->boolean('verify_ssl');
         $data['is_active'] = $request->boolean('is_active');
         $data['is_maintenance'] = $request->boolean('is_maintenance');
-        $data['priority'] = $data['priority'] ?? 10;
 
         // Kalau field token dikosongkan saat edit, jangan timpa token yang sudah tersimpan.
         if (empty($data['api_token'])) {
@@ -416,8 +413,6 @@ class ServerController extends Controller
             'api_token'    => [$updating ? 'nullable' : 'required', 'string'],
             'verify_ssl'   => ['nullable', 'boolean'],
             'max_accounts' => ['nullable', 'integer', 'min:1'],
-            'server_group_id' => ['nullable', 'exists:server_groups,id'],
-            'priority'     => ['nullable', 'integer', 'min:1', 'max:999'],
             'is_maintenance' => ['nullable', 'boolean'],
             'price_per_vcpu_hour' => ['nullable', 'numeric', 'min:0'],
             'price_per_ram_gb_hour' => ['nullable', 'numeric', 'min:0'],
@@ -439,7 +434,6 @@ class ServerController extends Controller
             // diisi supaya kolomnya tetap memakai nilai bawaan/lama.
             $data['ns1'] = null;
             $data['ns2'] = null;
-            $data['server_group_id'] = null; // Grup Server hanya untuk server hosting
             unset($data['port']);
         } else {
             $data['vps_provider'] = null;

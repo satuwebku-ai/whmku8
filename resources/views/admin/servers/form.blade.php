@@ -146,28 +146,22 @@
       </div>
     </div>
 
-    {{-- Grup & prioritas: hanya server hosting (cPanel dst), bukan VPS. --}}
-    <div class="row g-3 mb-3" id="rowGroup">
-      <div class="col-sm-8">
-        <label class="form-label small fw-medium text-dark">Grup Server (opsional)</label>
-        <select name="server_group_id" class="form-select" style="{{ $selectStyle }}">
-          <option value="">— Tanpa grup —</option>
-          @foreach (($groups ?? collect()) as $grp)
-            <option value="{{ $grp->id }}" @selected(old('server_group_id', $server->server_group_id) == $grp->id)>{{ $grp->name }}</option>
+    {{-- Keanggotaan grup diatur dari halaman Grup Server (server boleh masuk beberapa grup). --}}
+    <div class="mb-3" id="rowGroup">
+      <label class="form-label small fw-medium text-dark">Grup Server</label>
+      @if ($server->exists && $server->groups->isNotEmpty())
+        <div class="d-flex flex-wrap gap-1 mb-1">
+          @foreach ($server->groups as $grp)
+            <a href="{{ route('admin.server-groups.edit', $grp) }}" class="badge badge-soft-secondary text-decoration-none">{{ $grp->name }} · prioritas {{ $grp->pivot->priority }}</a>
           @endforeach
-        </select>
-        <p class="text-muted mt-1 mb-0" style="font-size:11px">
-          Produk yang memakai grup ini akan otomatis ditempatkan ke salah satu server di dalamnya.
-          <a href="{{ route('admin.server-groups.create') }}" target="_blank">Buat grup baru →</a>
-        </p>
-        @error('server_group_id') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
-      <div class="col-sm-4">
-        <label class="form-label small fw-medium text-dark">Prioritas</label>
-        <input type="number" min="1" max="999" name="priority" value="{{ old('priority', $server->priority ?? 10) }}" class="form-control form-control-sm">
-        <p class="text-muted mt-1 mb-0" style="font-size:11px">Angka kecil = didahulukan.</p>
-        @error('priority') <p class="text-danger mt-1 mb-0" style="font-size:12px">{{ $message }}</p> @enderror
-      </div>
+        </div>
+      @else
+        <p class="small text-muted mb-1">Belum masuk grup mana pun.</p>
+      @endif
+      <p class="text-muted mb-0" style="font-size:11px">
+        Pilih server anggota langsung dari halaman
+        <a href="{{ route('admin.server-groups.index') }}" target="_blank">Grup Server</a>.
+      </p>
     </div>
 
     <div class="row g-3 mb-3 align-items-center" id="rowGeneral">

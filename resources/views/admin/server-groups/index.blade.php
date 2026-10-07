@@ -67,7 +67,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="7" class="text-center text-muted py-5">Belum ada grup server. Buat grup, lalu masukkan server ke dalamnya lewat halaman Edit Server.</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-5">Belum ada grup server. Buat grup lalu centang server anggotanya.</td></tr>
           @endforelse
         </tbody>
       </table>

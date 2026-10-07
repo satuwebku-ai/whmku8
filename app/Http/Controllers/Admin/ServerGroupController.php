@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Server;
 use App\Models\ServerGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class ServerGroupController extends Controller
     public function index(): View
     {
         $groups = ServerGroup::withCount(['servers', 'products'])
-            ->with(['servers' => fn ($q) => $q->withCount(['hostingAccounts as active_accounts_count' => fn ($a) => $a->whereNotIn('status', \App\Models\Server::INACTIVE_ACCOUNT_STATUSES)])])
+            ->with(['servers' => fn ($q) => $q->withCount(['hostingAccounts as active_accounts_count' => fn ($a) => $a->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])])
             ->orderBy('name')
             ->paginate(15);
 
@@ -24,7 +25,11 @@ class ServerGroupController extends Controller
 
     public function create(): View
     {
-        return view('admin.server-groups.form', ['group' => new ServerGroup(['selection_mode' => 'least_accounts', 'is_active' => true])]);
+        return view('admin.server-groups.form', [
+            'group'   => new ServerGroup(['selection_mode' => 'least_accounts', 'is_active' => true]),
+            'servers' => $this->memberCandidates(),
+            'members' => [],
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -33,14 +38,20 @@ class ServerGroupController extends Controller
         $data['slug'] = $this->uniqueSlug($data['slug'] ?? null, $data['name']);
         $data['is_active'] = $request->boolean('is_active', true);
 
-        ServerGroup::create($data);
+        $group = ServerGroup::create($data);
+        $group->servers()->sync($this->memberPayload($request));
 
         return redirect()->route('admin.server-groups.index')->with('success', 'Grup server berhasil dibuat.');
     }
 
     public function edit(ServerGroup $serverGroup): View
     {
-        return view('admin.server-groups.form', ['group' => $serverGroup]);
+        return view('admin.server-groups.form', [
+            'group'   => $serverGroup,
+            'servers' => $this->memberCandidates(),
+            // server_id => ['priority' => n, 'is_active' => bool]
+            'members' => $serverGroup->servers()->get()->mapWithKeys(fn ($s) => [$s->id => ['priority' => $s->pivot->priority, 'is_active' => (bool) $s->pivot->is_active]])->all(),
+        ]);
     }
 
     public function update(Request $request, ServerGroup $serverGroup): RedirectResponse
@@ -50,6 +61,7 @@ class ServerGroupController extends Controller
         $data['is_active'] = $request->boolean('is_active');
 
         $serverGroup->update($data);
+        $serverGroup->servers()->sync($this->memberPayload($request));
 
         return redirect()->route('admin.server-groups.index')->with('success', 'Grup server berhasil diperbarui.');
     }
@@ -57,7 +69,7 @@ class ServerGroupController extends Controller
     public function destroy(ServerGroup $serverGroup): RedirectResponse
     {
         if ($serverGroup->servers()->exists()) {
-            return back()->with('error', 'Grup tidak bisa dihapus karena masih berisi server. Pindahkan atau keluarkan server dari grup ini dulu.');
+            return back()->with('error', 'Grup tidak bisa dihapus karena masih punya server anggota. Buka Edit Grup, hilangkan centang semua server, lalu simpan.');
         }
 
         if ($serverGroup->products()->exists()) {
@@ -77,9 +89,43 @@ class ServerGroupController extends Controller
             'description'    => ['nullable', 'string', 'max:1000'],
             'selection_mode' => ['required', Rule::in(array_keys(ServerGroup::MODES))],
             'is_active'      => ['nullable', 'boolean'],
+            'servers'        => ['nullable', 'array'],
+            'servers.*'      => ['integer'],
+            'priority'       => ['nullable', 'array'],
+            'priority.*'     => ['nullable', 'integer', 'min:1', 'max:999'],
         ], [
             'slug.regex' => 'Slug hanya boleh huruf kecil, angka, dan tanda hubung.',
         ]);
+    }
+
+    /**
+     * Server yang boleh jadi anggota grup: hanya server hosting (cPanel dst).
+     * Server VM/VPS dikecualikan -- harga & tagihannya terikat ke server
+     * tetap milik produk VPS, jadi tidak dipilih otomatis lewat grup.
+     */
+    private function memberCandidates()
+    {
+        return Server::whereNotIn('id', Server::cloud()->select('id'))
+            ->withCount(['hostingAccounts as active_accounts_count' => fn ($q) => $q->whereNotIn('status', Server::INACTIVE_ACCOUNT_STATUSES)])
+            ->orderBy('name')
+            ->get();
+    }
+
+    /** Hasil centang + prioritas dari form -> payload sync() pivot. */
+    private function memberPayload(Request $request): array
+    {
+        $ids = Server::whereNotIn('id', Server::cloud()->select('id'))
+            ->whereIn('id', (array) $request->input('servers', []))
+            ->pluck('id');
+
+        $priorities = (array) $request->input('priority', []);
+
+        return $ids->mapWithKeys(fn ($id) => [
+            $id => [
+                'priority'  => (int) ($priorities[$id] ?? 10) ?: 10,
+                'is_active' => true,
+            ],
+        ])->all();
     }
 
     /** Slug dari nama kalau kosong; ditambah angka kalau sudah dipakai grup lain. */
