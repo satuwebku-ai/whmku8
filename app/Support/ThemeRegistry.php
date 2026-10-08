@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\Setting;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Daftar tema diambil LANGSUNG dari folder (bukan dari config/), supaya:
@@ -45,5 +47,43 @@ class ThemeRegistry
         ksort($themes);
 
         return $themes;
+    }
+
+    /**
+     * Key tema yang aktif untuk scope 'public' atau 'client'. Kalau pengaturan
+     * belum ada, DB belum siap (migrasi awal), atau menunjuk ke tema yang
+     * foldernya sudah dihapus, jatuh balik ke "default" supaya situs tidak 500.
+     */
+    public static function active(string $scope): string
+    {
+        $key = 'default';
+
+        try {
+            if (Schema::hasTable('settings')) {
+                $key = (string) Setting::get("{$scope}_template", 'default');
+            }
+        } catch (\Throwable) {
+            // DB belum siap -- pakai default.
+        }
+
+        return array_key_exists($key, self::available($scope)) ? $key : 'default';
+    }
+
+    /**
+     * Layout induk untuk halaman toko (katalog, domain, lisensi, keranjang).
+     *
+     * Klien yang sudah login melihat toko DI DALAM portal client (sidebar,
+     * menu, dan tema client). Itu hanya dilakukan bila tema Publik dan tema
+     * Client yang aktif sama: view toko ditulis dengan CSS tema Publik, dan
+     * layout client dari tema lain memuat CSS yang berbeda sehingga tampilannya
+     * bisa berantakan. Tamu, atau tema yang berbeda, memakai layout publik.
+     */
+    public static function storeLayout(): string
+    {
+        if (! auth('client')->check()) {
+            return 'public.layout';
+        }
+
+        return self::active('public') === self::active('client') ? 'client.layout' : 'public.layout';
     }
 }

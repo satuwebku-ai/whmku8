@@ -10,21 +10,7 @@
   $siteIcon = Setting::get('site_icon');
   $isImpersonating = (bool) session('impersonator_admin_id');
 
-  $menu = [
-    ['label' => 'Dashboard',          'route' => 'client.dashboard',        'match' => 'client.dashboard*', 'icon' => 'bi-speedometer2'],
-    ['label' => 'Pesan Layanan Baru', 'route' => 'catalog.index',           'match' => 'catalog.*',         'icon' => 'bi-cart-plus'],
-    ['label' => 'Keranjang',          'route' => 'cart.index',              'match' => 'cart.*',            'icon' => 'bi-cart3', 'badge' => $cartCount],
-    ['label' => 'Layanan Saya',       'route' => 'client.services',         'match' => 'client.services*',  'icon' => 'bi-server'],
-    ['label' => 'VPS Saya',           'route' => 'client.vps',              'match' => 'client.vps*',       'icon' => 'bi-hdd-rack'],
-    ['label' => 'Domain Saya',        'route' => 'client.domains',          'match' => 'client.domains*',   'icon' => 'bi-globe2'],
-    ['label' => 'Billing',            'route' => 'client.billing',          'match' => 'client.billing',    'icon' => 'bi-receipt'],
-    ['label' => 'Invoice',            'route' => 'client.invoices',         'match' => 'client.invoices*',  'icon' => 'bi-file-earmark-text'],
-    ['label' => 'Lisensi Saya',       'route' => 'client.licenses',          'match' => 'client.licenses*',   'icon' => 'bi-key'],
-    ['label' => 'Saldo Saya',         'route' => 'client.balance',          'match' => 'client.balance*',   'icon' => 'bi-wallet2'],
-    ['label' => 'Tiket Support',      'route' => 'client.tickets',          'match' => 'client.tickets*',   'icon' => 'bi-life-preserver'],
-    ['label' => 'Affiliate',          'route' => 'client.affiliate.index',   'match' => 'client.affiliate*', 'icon' => 'bi-share'],
-    ['label' => 'Profil Saya',        'route' => 'client.profile',          'match' => 'client.profile*',   'icon' => 'bi-person-gear'],
-  ];
+  $menu = \App\Support\ClientMenu::items('bi', $cartCount);
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -100,8 +86,9 @@
             <li>
               <a class="nav-link d-flex align-items-center {{ $on ? 'active' : '' }}" href="{{ route($item['route']) }}" @if ($on) aria-current="page" @endif>
                 <i class="bi {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}
-                @if (($item['badge'] ?? 0) > 0)
-                  <span class="badge text-bg-warning ms-auto">{{ $item['badge'] }}</span>
+                {{-- Lencana keranjang selalu dirender (id=cartBadge) supaya JS halaman toko bisa memperbaruinya. --}}
+                @if (($item['badge'] ?? 0) > 0 || $item['route'] === 'cart.index')
+                  <span @if ($item['route'] === 'cart.index') id="cartBadge" @endif class="badge text-bg-warning ms-auto {{ ($item['badge'] ?? 0) > 0 ? '' : 'd-none' }}">{{ $item['badge'] ?? 0 }}</span>
                 @endif
               </a>
             </li>

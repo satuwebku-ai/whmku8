@@ -1,4 +1,4 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   use App\Models\Setting;

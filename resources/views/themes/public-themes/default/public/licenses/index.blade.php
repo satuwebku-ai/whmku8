@@ -1,8 +1,8 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php($seoTitle = 'Lisensi & Sertifikat SSL')
 
-@section('content')
+@section('store-content')
   <section class="py-4 py-lg-5">
     <div class="text-center mb-4">
       <span class="badge badge-soft-warning mb-2">LISENSI & SSL</span>

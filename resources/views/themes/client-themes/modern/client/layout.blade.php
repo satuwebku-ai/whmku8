@@ -7,20 +7,7 @@
   $client = auth('client')->user();
   $cartCount = app(CartService::class)->count();
 
-  $menu = [
-    ['label' => 'Dashboard', 'route' => 'client.dashboard', 'match' => 'client.dashboard*', 'icon' => 'fa-gauge'],
-    ['label' => 'Pesan Layanan Baru', 'route' => 'catalog.index', 'match' => 'catalog.*', 'icon' => 'fa-cart-plus'],
-    ['label' => 'Keranjang', 'route' => 'cart.index', 'match' => 'cart.*', 'icon' => 'fa-cart-shopping'],
-    ['label' => 'Layanan Saya', 'route' => 'client.services', 'match' => 'client.services*', 'icon' => 'fa-server'],
-    ['label' => 'VPS Saya', 'route' => 'client.vps', 'match' => 'client.vps*', 'icon' => 'fa-cloud'],
-    ['label' => 'Domain Saya', 'route' => 'client.domains', 'match' => 'client.domains*', 'icon' => 'fa-globe'],
-    ['label' => 'Billing', 'route' => 'client.billing', 'match' => 'client.billing', 'icon' => 'fa-receipt'],
-    ['label' => 'Invoice', 'route' => 'client.invoices', 'match' => 'client.invoices*', 'icon' => 'fa-file-invoice'],
-    ['label' => 'Saldo Saya', 'route' => 'client.balance', 'match' => 'client.balance*', 'icon' => 'fa-wallet'],
-    ['label' => 'Tiket Support', 'route' => 'client.tickets', 'match' => 'client.tickets*', 'icon' => 'fa-comments'],
-    ['label' => 'Affiliate', 'route' => 'client.affiliate.index', 'match' => 'client.affiliate*', 'icon' => 'fa-share-nodes'],
-    ['label' => 'Profil Saya', 'route' => 'client.profile', 'match' => 'client.profile*', 'icon' => 'fa-user'],
-  ];
+  $menu = \App\Support\ClientMenu::items('fa', $cartCount);
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -168,9 +155,7 @@
         </a>
         <a href="{{ route('cart.index') }}" class="position-relative d-flex align-items-center justify-content-center text-decoration-none rounded-3" style="width:36px;height:36px;color:#52525b">
           <i class="fa-solid fa-cart-shopping"></i>
-          @if ($cartCount > 0)
-            <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-bold text-white" style="top:-2px;right:-2px;width:16px;height:16px;font-size:10px;background:var(--lumora-theme)">{{ $cartCount }}</span>
-          @endif
+          <span id="cartBadge" class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-bold text-white {{ $cartCount > 0 ? '' : 'd-none' }}" style="top:-2px;right:-2px;width:16px;height:16px;font-size:10px;background:var(--lumora-theme)">{{ $cartCount }}</span>
         </a>
         <span class="d-none d-sm-block" style="color:#3f3f46;font-size:13.5px;font-weight:600">{{ $client->name }}</span>
         <img src="{{ $client->avatar_url }}" class="rounded-circle" style="width:34px;height:34px;border:2px solid #ece9e2" alt="">

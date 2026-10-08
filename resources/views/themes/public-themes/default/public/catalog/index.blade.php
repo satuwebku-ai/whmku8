@@ -1,11 +1,11 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   $seoTitle = 'Paket Hosting & Domain';
   $seoDescription = 'Pilih paket hosting sesuai kebutuhan Anda — mulai dari shared hosting hingga VPS, lengkap dengan domain.';
 @endphp
 
-@section('content')
+@section('store-content')
 
   @include('public._promo-banner-carousel')
 

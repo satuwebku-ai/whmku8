@@ -1,8 +1,8 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php $seoTitle = $license->name; @endphp
 
-@section('content')
+@section('store-content')
 
   <div class="row g-4 py-4 py-lg-5">
     <div class="col-12 col-lg-7">

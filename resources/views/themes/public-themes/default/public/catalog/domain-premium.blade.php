@@ -1,4 +1,4 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   $seoTitle = 'Domain Premium';
@@ -6,7 +6,7 @@
   $activeTab = request()->hasAny(['cari', 'urut', 'page']) ? 'custom' : 'karakter';
 @endphp
 
-@section('content')
+@section('store-content')
 
   <div class="mb-4">
     @include('public._promo-banner-carousel')

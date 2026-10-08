@@ -1,11 +1,11 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   $seoTitle = $category->name;
   $seoDescription = $category->description ?: "Pilihan paket {$category->name} — aktif cepat, dukungan 24/7.";
 @endphp
 
-@section('content')
+@section('store-content')
 
   <nav class="text-muted mb-3" style="font-size:12px">
     @if ($category->productType?->kind === 'vps')

@@ -1,11 +1,11 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   $seoTitle = 'Paket VPS';
   $seoDescription = 'VPS NVMe dengan akses root penuh dan aktivasi otomatis dalam hitungan menit.';
 @endphp
 
-@section('content')
+@section('store-content')
 
   @include('public._promo-banner-carousel')
 

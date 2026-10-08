@@ -1,10 +1,10 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   $seoTitle = 'Keranjang Belanja';
 @endphp
 
-@section('content')
+@section('store-content')
 
   <h1 class="fw-bold text-dark mb-4" style="font-size:1.6rem">Keranjang Belanja</h1>
 

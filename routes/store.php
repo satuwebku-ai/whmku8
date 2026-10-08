@@ -10,11 +10,14 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public Store Routes
+| Store Routes (portal client)
 |--------------------------------------------------------------------------
-| Product discovery, domain sales, and cart management are public storefront
-| functions. The authenticated order submission remains in routes/client.php.
-| This file is loaded only on the public-site domain.
+| Katalog produk, penjualan domain/lisensi, dan keranjang. Toko berjalan di
+| domain client (member.*) di bawah prefix /store -- satu domain dengan login,
+| keranjang (session), dan checkout, sehingga alur order tidak lagi
+| berpindah domain. Prefix dipasang di routes/web.php; nama route
+| (catalog.*, cart.*, ...) tidak berubah. Tamu boleh menjelajah toko; login
+| baru diminta saat checkout. Domain publik hanya memuat konten CMS.
 */
 // Segmen {section} = slug jenis produk (tabel product_types), bukan daftar tetap.
 $catalogSections = ProductType::sectionPattern();

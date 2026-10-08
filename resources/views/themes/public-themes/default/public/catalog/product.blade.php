@@ -1,4 +1,4 @@
-@extends('public.layout')
+@extends('public.store-layout')
 
 @php
   use Illuminate\Support\Str;
@@ -8,7 +8,7 @@
   $unit = ['monthly' => '/bulan', 'quarterly' => '/3 bulan', 'semi_annually' => '/6 bulan', 'annually' => '/tahun'];
 @endphp
 
-@section('content')
+@section('store-content')
 
   <nav class="text-muted mb-3" style="font-size:12px">
     <a href="{{ route('catalog.index') }}" class="text-decoration-none text-muted">Hosting</a> /
