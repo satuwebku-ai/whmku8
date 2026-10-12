@@ -57,6 +57,111 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertDontSee('Tambah Premium');
     }
 
+    public function test_generic_premium_from_admin_extension_list_is_not_sent_to_regular_cart(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Generic Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.com', 120000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.com',
+            'is_premium' => true,
+            'label' => '.com Premium',
+            'is_generic' => true,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([
+                'data' => ['available' => true, 'is_premium' => true],
+            ]),
+        ]);
+
+        $this->get(route('domain.search', ['domain' => 'genericpremium', 'extensions' => ['.com']]))
+            ->assertOk()
+            ->assertSee('PREMIUM PER NAMA')
+            ->assertSee('Harga dan pemesanan premium ditentukan per nama')
+            ->assertSee('Pemesanan manual')
+            ->assertDontSee(route('domain.add-to-cart'), false);
+    }
+
+    public function test_generic_extension_stays_regular_when_registrar_says_not_premium(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Generic Regular Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.com', 120000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.com',
+            'is_premium' => true,
+            'label' => '.com Premium',
+            'is_generic' => true,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([
+                'data' => ['available' => true, 'is_premium' => false],
+            ]),
+        ]);
+
+        $this->get(route('domain.search', ['domain' => 'regulargeneric', 'extensions' => ['.com']]))
+            ->assertOk()
+            ->assertSee('Rp 120.000')
+            ->assertSee(route('domain.add-to-cart'), false)
+            ->assertDontSee('PREMIUM PER NAMA');
+    }
+
+    public function test_generic_domain_is_not_added_at_regular_price_when_premium_check_fails(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Generic Failure Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.com', 120000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.com',
+            'is_premium' => true,
+            'label' => '.com Premium',
+            'is_generic' => true,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([], 500),
+        ]);
+
+        $this->get(route('domain.search', ['domain' => 'premiumunknown', 'extensions' => ['.com']]))
+            ->assertOk()
+            ->assertSee('CEK PREMIUM ULANG')
+            ->assertSee('Status premium belum terverifikasi oleh registrar')
+            ->assertSee('Perlu Dicek Manual')
+            ->assertDontSee(route('domain.add-to-cart'), false);
+    }
+
     public function test_id_family_premium_search_result_uses_the_premium_tier(): void
     {
         $registrar = Registrar::create([

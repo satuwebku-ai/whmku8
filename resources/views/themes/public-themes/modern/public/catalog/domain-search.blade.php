@@ -182,6 +182,7 @@
                     $ext = '.' . \Illuminate\Support\Str::after($domainName, '.');
                     $tld = $allTldPrices->get($ext);
                     $premiumInfo = $results['premium'][$domainName] ?? null;
+                    $premiumCheckUnknown = $results['premium_check_unknown'][$domainName] ?? false;
                     $rowStyle = $available === true ? 'border-color:#a7f3d0!important;background:rgba(16,185,129,.04)'
                               : ($available === null ? 'border-color:#fde68a!important;background:rgba(245,158,11,.04)'
                               : 'background:#f8fafc');
@@ -193,8 +194,10 @@
                         {{ $domainName }}
                         @if ($premiumInfo)
                           <span class="badge ms-1" style="font-size:10px;background:#fef3c7;color:#92400e;vertical-align:middle">
-                            {{ $premiumInfo['type'] === 'custom' ? 'PREMIUM KHUSUS' : 'PREMIUM' }}
+                            {{ $premiumInfo['type'] === 'custom' ? 'PREMIUM KHUSUS' : ($premiumInfo['type'] === 'generic' ? 'PREMIUM PER NAMA' : 'PREMIUM') }}
                           </span>
+                        @elseif ($premiumCheckUnknown)
+                          <span class="badge ms-1" style="font-size:10px;background:#fef3c7;color:#92400e;vertical-align:middle">CEK PREMIUM ULANG</span>
                         @endif
                         @if ($tld?->is_demo)
                           <span class="badge ms-1" style="font-size:10px;background:#fef3c7;color:#b45309;vertical-align:middle">DEMO</span>
@@ -202,7 +205,9 @@
                       </p>
                       @if ($premiumInfo)
                         <p class="text-muted mb-0" style="font-size:12px">
-                          @if ($premiumInfo['price'] > 0)
+                          @if ($premiumInfo['type'] === 'generic')
+                            Harga dan pemesanan premium ditentukan per nama — hubungi admin.
+                          @elseif ($premiumInfo['price'] > 0)
                             {{ $premiumInfo['price_formatted'] }} <span class="text-muted">/registrasi 1 tahun</span>
                           @else
                             Harga premium belum diatur — hubungi admin.
@@ -210,6 +215,10 @@
                           @if ($premiumInfo['type'] === 'tier' && ! $premiumInfo['verified'])
                             <span class="d-block" style="color:#b45309">Klasifikasi premium belum terkonfirmasi ke registry.</span>
                           @endif
+                        </p>
+                      @elseif ($premiumCheckUnknown)
+                        <p class="mb-0" style="font-size:12px;color:#b45309">
+                          Status premium belum terverifikasi oleh registrar. Coba lagi; domain tidak ditambahkan dengan harga reguler.
                         </p>
                       @elseif ($available === true && $tld)
                         <p class="text-muted mb-0" style="font-size:12px">
@@ -221,7 +230,9 @@
                     </div>
 
                     @if ($available === true)
-                      @if ($premiumInfo && $premiumInfo['type'] === 'custom')
+                      @if ($premiumInfo && $premiumInfo['type'] === 'generic')
+                        <span class="flex-shrink-0" style="font-size:12px;color:#92400e">Pemesanan manual — hubungi admin</span>
+                      @elseif ($premiumInfo && $premiumInfo['type'] === 'custom')
                         <form method="POST" action="{{ route('cart.add-custom-premium') }}" class="flex-shrink-0">
                           @csrf
                           <input type="hidden" name="custom_premium_id" value="{{ $premiumInfo['id'] }}">
