@@ -201,6 +201,21 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    /**
+     * Domain di invoice ini yang berkas persyaratannya belum lengkap/disetujui
+     * (null kalau tidak ada). Hanya relevan untuk invoice yang masih bisa
+     * dibayar. Memakai gerbang yang sama dengan PaymentEligibilityService,
+     * jadi tampilan klien dan penolakan server tidak bisa berbeda pendapat.
+     */
+    public function documentBlocker(): ?Domain
+    {
+        if ($this->is_topup || ! in_array($this->status, ['unpaid', 'overdue'], true)) {
+            return null;
+        }
+
+        return app(\App\Services\Payment\PaymentEligibilityService::class)->documentBlocker($this);
+    }
+
     public function getIsOverdueAttribute(): bool
     {
         return $this->status === 'unpaid' && $this->due_date?->isPast();

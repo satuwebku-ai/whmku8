@@ -120,6 +120,21 @@
           <p class="mb-0" style="font-size:14px">Invoice ini sudah dibatalkan.</p>
         </div>
 
+      @elseif ($docBlocker = $invoice->documentBlocker())
+        {{-- Berkas persyaratan domain belum lengkap: form bayar disembunyikan.
+             Server tetap menolak lewat PaymentEligibilityService. --}}
+        <div class="card-public p-4" style="border-color:#fde68a!important;background:#fffbeb">
+          <p class="fw-semibold mb-1" style="font-size:14px;color:#92400e">
+            <i class="fa-solid fa-file-circle-exclamation"></i> Lengkapi Berkas Dulu
+          </p>
+          <p class="mb-3" style="font-size:12px;color:#b45309">
+            Domain {{ $docBlocker->domain_name }} membutuhkan berkas persyaratan. Invoice ini baru bisa dibayar setelah semua berkas wajib diunggah dan disetujui tim kami.
+          </p>
+          <a href="{{ route('client.domains.documents', $docBlocker) }}" class="btn btn-theme w-100">
+            Lihat &amp; Unggah Berkas
+          </a>
+        </div>
+
       @else
         {{-- Ada pembayaran yang belum selesai --}}
         @if ($pendingPayment && $pendingPayment->payment_url)

@@ -90,6 +90,7 @@ class ServiceController extends Controller
     {
         $domains = Auth::guard('client')->user()
             ->domains()
+            ->with(['tld', 'documents'])
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest()
             ->paginate(10)
