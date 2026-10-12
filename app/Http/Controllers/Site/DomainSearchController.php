@@ -4,13 +4,20 @@ namespace App\Http\Controllers\Site;
 
 use App\Http\Controllers\Concerns\HandlesStoreHandoff;
 use App\Http\Controllers\Controller;
+use App\Models\CustomPremiumDomain;
 use App\Models\DomainInterest;
+use App\Models\Registrar;
 use App\Models\Tld;
+use App\Models\TldPremium;
+use App\Services\Domain\DnamaService;
 use App\Services\Cart\CartService;
 use App\Services\Domain\AvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class DomainSearchController extends Controller
 {
@@ -113,6 +120,7 @@ class DomainSearchController extends Controller
 
                     // Domain demo ditaruh paling atas agar mudah ditemukan.
                     $results['results'] = $demoDomains + $results['results'];
+                    $this->attachPremiumDetails($results, $allTldPrices);
                 }
             }
         }
@@ -120,6 +128,154 @@ class DomainSearchController extends Controller
         $banners = \App\Models\PromoBanner::live()->forPage('domain_search')->orderBy('sort_order')->get();
 
         return compact('results', 'query', 'tldPrices', 'allTldPrices', 'selected', 'groups', 'banners');
+    }
+
+    /**
+     * Tandai hasil yang memang dijual sebagai premium agar tidak salah
+     * ditawarkan dengan harga TLD reguler.
+     *
+     * Sumber premium yang dipakai:
+     * - Domain premium custom yang sudah diberi harga jual oleh admin.
+     * - Tingkat harga premium keluarga .id, dengan verifikasi registry
+     *   DNAMA bila tersedia (fallback ke tingkat harga jika API gagal).
+     *
+     * Domain premium custom memakai harga per nama; premium .id memakai
+     * harga jual berdasarkan jumlah karakter.
+     */
+    private function attachPremiumDetails(array &$searchResults, $allTldPrices): void
+    {
+        $searchResults['premium'] = [];
+        $domains = array_keys($searchResults['results'] ?? []);
+
+        if (! $domains) {
+            return;
+        }
+
+        $normalizedDomains = array_map('strtolower', $domains);
+        $customPremiums = CustomPremiumDomain::query()
+            ->where('is_active', true)
+            ->where('sell_price', '>', 0)
+            ->whereIn(DB::raw('LOWER(domain_name)'), $normalizedDomains)
+            ->get()
+            ->keyBy(fn (CustomPremiumDomain $domain) => strtolower($domain->domain_name));
+
+        foreach ($customPremiums as $domainName => $premium) {
+            $price = (float) $premium->sell_price;
+            $searchResults['premium'][$domainName] = [
+                'type' => 'custom',
+                'id' => $premium->id,
+                'price' => $price,
+                'price_formatted' => 'Rp ' . number_format($price, 0, ',', '.'),
+                'verified' => true,
+            ];
+        }
+
+        $registrar = Registrar::where('provider', 'dnama')->where('is_active', true)->first();
+
+        if (! $registrar) {
+            return;
+        }
+
+        $idExtensions = array_values(array_intersect(
+            TldPremium::ID_FAMILY,
+            $allTldPrices->keys()->all()
+        ));
+
+        if (! $idExtensions) {
+            return;
+        }
+
+        $premiumTiers = TldPremium::query()
+            ->where('registrar_id', $registrar->id)
+            ->whereIn('extension', $idExtensions)
+            ->where('is_active', true)
+            ->where('is_premium', true)
+            ->whereNotNull('max_premium_character')
+            ->orderBy('max_premium_character')
+            ->get()
+            ->groupBy('extension');
+
+        if ($premiumTiers->isEmpty()) {
+            return;
+        }
+
+        $extensions = collect($allTldPrices->keys()->all())
+            ->sortByDesc(fn ($extension) => strlen($extension))
+            ->values()
+            ->all();
+
+        foreach ($domains as $domainName) {
+            $domainKey = strtolower($domainName);
+
+            // Domain yang sudah masuk katalog premium custom memakai harga
+            // khususnya sendiri, bukan harga bertingkat keluarga .id.
+            if (isset($searchResults['premium'][$domainKey])) {
+                continue;
+            }
+
+            $extension = collect($extensions)->first(fn ($candidate) => str_ends_with($domainKey, $candidate));
+
+            if (! $extension || ! in_array($extension, TldPremium::ID_FAMILY, true)) {
+                continue;
+            }
+
+            $label = substr($domainKey, 0, -strlen($extension));
+            $tier = $premiumTiers->get($extension, collect())
+                ->first(fn (TldPremium $row) => strlen($label) <= (int) $row->max_premium_character);
+
+            if (! $tier) {
+                continue;
+            }
+
+            $verified = null;
+
+            // Jangan memanggil DNAMA lagi untuk domain yang sudah jelas
+            // terdaftar. Untuk domain lain, cache menghindari pemanggilan
+            // berulang saat pengunjung mengulangi pencarian yang sama.
+            if (($searchResults['results'][$domainName] ?? null) !== false) {
+                try {
+                    $verified = Cache::remember(
+                        "dnama-premium-check:{$domainKey}",
+                        now()->addMinutes(10),
+                        fn () => (new DnamaService($registrar))->checkPremiumStatus($domainKey)
+                    );
+                } catch (Throwable) {
+                    $verified = null;
+                }
+            }
+
+            $isVerified = is_array($verified) && ($verified['success'] ?? false);
+
+            if ($isVerified) {
+                if (($verified['available'] ?? null) === false) {
+                    $searchResults['results'][$domainName] = false;
+                } elseif (($verified['available'] ?? null) === true) {
+                    $searchResults['results'][$domainName] = true;
+                }
+
+                // Registry adalah sumber final klasifikasi .id. Jika
+                // menyatakan domain reguler, biarkan memakai harga TLD biasa.
+                if (! ($verified['is_premium'] ?? false)) {
+                    continue;
+                }
+            }
+
+            $price = (float) ($tier->sell_register_price ?? 0);
+            $searchResults['premium'][$domainKey] = [
+                'type' => 'tier',
+                'id' => $tier->id,
+                'price' => $price,
+                'price_formatted' => 'Rp ' . number_format($price, 0, ',', '.'),
+                'verified' => $isVerified,
+            ];
+        }
+
+        // DNAMA dapat memastikan status domain meski RDAP tidak mendukung
+        // ekstensi .id; sinkronkan daftar "belum pasti" dengan hasil terbaru.
+        $searchResults['unknown'] = array_keys(array_filter(
+            $searchResults['results'],
+            fn ($available) => $available === null
+        ));
     }
 
     /**

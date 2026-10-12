@@ -11,6 +11,12 @@
     ? collect($results['results'])->filter(fn ($v) => $v === true)->count()
     : 0;
 
+  $premiumAvailableCount = ($results && $results['success'])
+    ? collect($results['premium'] ?? [])->filter(fn ($premium, $domain) => ($results['results'][$domain] ?? null) === true)->count()
+    : 0;
+
+  $regularAvailableCount = max(0, $availableCount - $premiumAvailableCount);
+
   $unknownCount = ($results && $results['success'])
     ? count($results['unknown'] ?? [])
     : 0;
@@ -149,7 +155,12 @@
               <h2 class="fw-semibold text-dark mb-0" style="font-size:16px">Hasil pencarian untuk "{{ $query }}"</h2>
               <div class="d-flex align-items-center gap-3" style="font-size:12px">
                 @if ($results && $results['success'] && $availableCount > 0)
-                  <span class="text-success fw-medium">{{ $availableCount }} tersedia</span>
+                  @if ($regularAvailableCount > 0)
+                    <span class="text-success fw-medium">{{ $regularAvailableCount }} tersedia reguler</span>
+                  @endif
+                  @if ($premiumAvailableCount > 0)
+                    <span class="fw-medium" style="color:#a16207">{{ $premiumAvailableCount }} tersedia premium</span>
+                  @endif
                 @endif
                 @if ($unknownCount > 0)
                   <span style="color:#b45309">{{ $unknownCount }} belum pasti</span>
@@ -170,6 +181,7 @@
                   @php
                     $ext = '.' . \Illuminate\Support\Str::after($domainName, '.');
                     $tld = $allTldPrices->get($ext);
+                    $premiumInfo = $results['premium'][$domainName] ?? null;
                     $rowStyle = $available === true ? 'border-color:#a7f3d0!important;background:rgba(16,185,129,.04)'
                               : ($available === null ? 'border-color:#fde68a!important;background:rgba(245,158,11,.04)'
                               : 'background:#f8fafc');
@@ -179,11 +191,27 @@
                     <div class="min-w-0">
                       <p class="fw-semibold mb-0" style="{{ $available === true ? 'color:#1e293b' : ($available === null ? 'color:#334155' : 'color:#94a3b8;text-decoration:line-through') }}">
                         {{ $domainName }}
+                        @if ($premiumInfo)
+                          <span class="badge ms-1" style="font-size:10px;background:#fef3c7;color:#92400e;vertical-align:middle">
+                            {{ $premiumInfo['type'] === 'custom' ? 'PREMIUM KHUSUS' : 'PREMIUM' }}
+                          </span>
+                        @endif
                         @if ($tld?->is_demo)
                           <span class="badge ms-1" style="font-size:10px;background:#fef3c7;color:#b45309;vertical-align:middle">DEMO</span>
                         @endif
                       </p>
-                      @if ($available === true && $tld)
+                      @if ($premiumInfo)
+                        <p class="text-muted mb-0" style="font-size:12px">
+                          @if ($premiumInfo['price'] > 0)
+                            {{ $premiumInfo['price_formatted'] }} <span class="text-muted">/registrasi 1 tahun</span>
+                          @else
+                            Harga premium belum diatur — hubungi admin.
+                          @endif
+                          @if ($premiumInfo['type'] === 'tier' && ! $premiumInfo['verified'])
+                            <span class="d-block" style="color:#b45309">Klasifikasi premium belum terkonfirmasi ke registry.</span>
+                          @endif
+                        </p>
+                      @elseif ($available === true && $tld)
                         <p class="text-muted mb-0" style="font-size:12px">
                           Rp {{ number_format($tld->register_price, 0, ',', '.') }} <span class="text-muted">/tahun</span>
                         </p>
@@ -193,19 +221,38 @@
                     </div>
 
                     @if ($available === true)
-                      <form method="POST" action="{{ route('domain.add-to-cart') }}" class="d-flex align-items-center gap-2 flex-shrink-0">
-                        @csrf
-                        <input type="hidden" name="domain_name" value="{{ $domainName }}">
-                        <input type="hidden" name="tld_id" value="{{ $tld->id ?? '' }}">
-                        <select name="years" class="form-select form-select-sm" style="width:auto">
-                          @for ($y = 1; $y <= min($tld->max_years ?? 5, 5); $y++)
-                            <option value="{{ $y }}">{{ $y }} thn</option>
-                          @endfor
-                        </select>
-                        <button type="submit" class="btn btn-theme py-1 px-3" style="font-size:12px" {{ $tld ? '' : 'disabled' }}>
-                          <i class="fa-solid fa-cart-plus" style="font-size:11px"></i> Tambah
-                        </button>
-                      </form>
+                      @if ($premiumInfo && $premiumInfo['type'] === 'custom')
+                        <form method="POST" action="{{ route('cart.add-custom-premium') }}" class="flex-shrink-0">
+                          @csrf
+                          <input type="hidden" name="custom_premium_id" value="{{ $premiumInfo['id'] }}">
+                          <button type="submit" class="btn btn-theme py-1 px-3" style="font-size:12px" {{ $premiumInfo['price'] > 0 ? '' : 'disabled' }}>
+                            <i class="fa-solid fa-cart-plus" style="font-size:11px"></i> Tambah Premium
+                          </button>
+                        </form>
+                      @elseif ($premiumInfo && $premiumInfo['type'] === 'tier')
+                        <form method="POST" action="{{ route('cart.add-premium-domain') }}" class="flex-shrink-0">
+                          @csrf
+                          <input type="hidden" name="tld_premium_id" value="{{ $premiumInfo['id'] }}">
+                          <input type="hidden" name="domain_label" value="{{ \Illuminate\Support\Str::beforeLast($domainName, $ext) }}">
+                          <button type="submit" class="btn btn-theme py-1 px-3" style="font-size:12px" {{ $premiumInfo['price'] > 0 ? '' : 'disabled' }}>
+                            <i class="fa-solid fa-cart-plus" style="font-size:11px"></i> Tambah Premium
+                          </button>
+                        </form>
+                      @else
+                        <form method="POST" action="{{ route('domain.add-to-cart') }}" class="d-flex align-items-center gap-2 flex-shrink-0">
+                          @csrf
+                          <input type="hidden" name="domain_name" value="{{ $domainName }}">
+                          <input type="hidden" name="tld_id" value="{{ $tld->id ?? '' }}">
+                          <select name="years" class="form-select form-select-sm" style="width:auto">
+                            @for ($y = 1; $y <= min($tld->max_years ?? 5, 5); $y++)
+                              <option value="{{ $y }}">{{ $y }} thn</option>
+                            @endfor
+                          </select>
+                          <button type="submit" class="btn btn-theme py-1 px-3" style="font-size:12px" {{ $tld ? '' : 'disabled' }}>
+                            <i class="fa-solid fa-cart-plus" style="font-size:11px"></i> Tambah
+                          </button>
+                        </form>
+                      @endif
                     @elseif ($available === null)
                       <span class="flex-shrink-0" style="font-size:12px;color:#b45309">Perlu Dicek Manual</span>
                     @else
