@@ -76,6 +76,7 @@ class DomainSearchPremiumClassificationTest extends TestCase
             'max_premium_character' => 2,
             'label' => '* .id (2 karakter) Premium',
             'is_generic' => false,
+            'cost_register' => 3000000,
             'sell_register_price' => 8500000,
             'is_active' => true,
         ]);
@@ -91,6 +92,7 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertOk()
             ->assertSee('PREMIUM')
             ->assertSee('Rp 8.500.000')
+            ->assertDontSee('Rp 3.000.000')
             ->assertSee(route('cart.add-premium-domain'), false)
             ->assertSee('name="tld_premium_id"', false)
             ->assertDontSee('name="domain_name" value="ab.id"', false);

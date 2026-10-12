@@ -136,8 +136,10 @@ class DomainSearchController extends Controller
      *
      * Sumber premium yang dipakai:
      * - Domain premium custom yang sudah diberi harga jual oleh admin.
-     * - Tingkat harga premium keluarga .id, dengan verifikasi registry
-     *   DNAMA bila tersedia (fallback ke tingkat harga jika API gagal).
+     * - Tingkat karakter premium keluarga .id mengikuti aturan PANDI dan
+     *   harga jual sell_register_price yang diatur admin. DNAMA hanya
+     *   memeriksa status premium/ketersediaan; jika API gagal, klasifikasi
+     *   memakai tingkat karakter dan harga jual yang tersimpan.
      *
      * Domain premium custom memakai harga per nama; premium .id memakai
      * harga jual berdasarkan jumlah karakter.
@@ -260,6 +262,8 @@ class DomainSearchController extends Controller
                 }
             }
 
+            // Harga publik selalu harga jual yang diisi admin, bukan harga
+            // modal hasil sinkronisasi DNAMA (cost_register).
             $price = (float) ($tier->sell_register_price ?? 0);
             $searchResults['premium'][$domainKey] = [
                 'type' => 'tier',
