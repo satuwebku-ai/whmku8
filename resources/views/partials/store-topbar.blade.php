@@ -19,6 +19,7 @@
   $siteIcon = \App\Models\Setting::get('site_icon');
 
   $storeLinks = [
+    ['Store', 'store.index', 'fa-store'],
     ['Hosting', 'catalog.index', 'fa-server'],
     ['VPS', 'catalog.vps', 'fa-cloud'],
     ['Domain', 'domain.search', 'fa-globe'],
@@ -45,7 +46,8 @@
   .store-topbar__nav { display: flex; align-items: center; gap: .25rem; margin-left: .75rem; }
   .store-topbar__link { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .8rem; border-radius: .6rem; font-size: .85rem; font-weight: 500;
     color: var(--st-muted); text-decoration: none; white-space: nowrap; transition: background .15s, color .15s; }
-  .store-topbar__link:hover { background: var(--st-hover-bg); color: var(--st-hover-fg); }
+  .store-topbar__link:hover, .store-topbar__link.is-active { background: var(--st-hover-bg); color: var(--st-hover-fg); }
+  .store-topbar__link.is-active { font-weight: 600; }
   .store-topbar__end { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
   .store-topbar__cart { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: .7rem;
     color: var(--st-cart-fg); text-decoration: none; background: var(--st-cart-bg); transition: background .15s, color .15s; }
@@ -112,7 +114,7 @@
 
     <nav class="store-topbar__nav d-none d-md-flex" aria-label="Etalase">
       @foreach ($storeLinks as [$label, $route, $icon])
-        <a href="{{ route($route) }}" class="store-topbar__link"><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
+        <a href="{{ route($route) }}" class="store-topbar__link {{ request()->routeIs($route) ? 'is-active' : '' }}" @if (request()->routeIs($route)) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
       @endforeach
     </nav>
 
@@ -139,7 +141,7 @@
 
   <nav class="store-topbar__mobile d-md-none" aria-label="Etalase">
     @foreach ($storeLinks as [$label, $route, $icon])
-      <a href="{{ route($route) }}" class="store-topbar__link"><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
+      <a href="{{ route($route) }}" class="store-topbar__link {{ request()->routeIs($route) ? 'is-active' : '' }}" @if (request()->routeIs($route)) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
     @endforeach
   </nav>
 </header>

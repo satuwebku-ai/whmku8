@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Site\CartController;
 use App\Http\Controllers\Site\DomainSearchController;
+use App\Http\Controllers\Site\StoreController;
 use App\Http\Middleware\RequirePortalOrigin;
 use Illuminate\Support\Facades\Route;
 
@@ -41,3 +42,7 @@ Route::controller(CartController::class)->prefix('keranjang')->name('cart.')->gr
     Route::post('hapus', 'remove')->name('remove');
     Route::post('kosongkan', 'clear')->name('clear');
 });
+
+// Halaman utama Store (/store): pintasan ke semua menu jualan dan keranjang.
+// Diletakkan setelah route keranjang; path "/" di bawah prefix /store tidak bentrok.
+Route::get('/', [StoreController::class, 'index'])->name('store.index');
