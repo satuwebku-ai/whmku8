@@ -41,6 +41,54 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertDontSee('name="domain_name" value="brand.com"', false);
     }
 
+    public function test_custom_premium_admin_price_overrides_id_tier_and_regular_prices(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Custom Override Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.id', 235000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.id',
+            'is_premium' => true,
+            'max_premium_character' => 2,
+            'label' => '.id (2 karakter) Premium',
+            'is_generic' => false,
+            'sell_register_price' => 8500000,
+            'is_active' => true,
+        ]);
+
+        CustomPremiumDomain::create([
+            'domain_name' => 'ab.id',
+            'label' => 'ab',
+            'extension' => '.id',
+            'characters' => 2,
+            'years' => 1,
+            'cost_price' => 5000000,
+            'sell_price' => 9000000,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+        ]);
+
+        $this->get(route('domain.search', ['domain' => 'ab']))
+            ->assertOk()
+            ->assertSee('PREMIUM KHUSUS')
+            ->assertSee('Rp 9.000.000')
+            ->assertDontSee('Rp 8.500.000')
+            ->assertSee(route('cart.add-custom-premium'), false)
+            ->assertDontSee('name="tld_premium_id"', false)
+            ->assertDontSee('name="domain_name" value="ab.id"', false);
+    }
+
     public function test_regular_domain_search_result_keeps_regular_price_and_cart_route(): void
     {
         $this->createTld('.com', 120000);
@@ -244,6 +292,9 @@ class DomainSearchPremiumClassificationTest extends TestCase
 
         Http::fake([
             'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([
+                'data' => ['available' => true, 'is_premium' => false],
+            ]),
         ]);
 
         $this->get(route('domain.search', [
@@ -255,6 +306,53 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertSee('Rp 20.000')
             ->assertSee(route('domain.add-to-cart'), false)
             ->assertDontSee('PREMIUM');
+    }
+
+    public function test_registry_detected_name_premium_is_caught_outside_fixed_tiers(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Per-name Premium Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.id', 235000, $registrar->id);
+        $this->createTld('.sbs', 10800000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.id',
+            'is_premium' => true,
+            'max_premium_character' => 4,
+            'label' => '.id (4 karakter) Premium',
+            'is_generic' => false,
+            'sell_register_price' => 2000000,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([
+                'data' => ['available' => true, 'is_premium' => true],
+            ]),
+        ]);
+
+        $response = $this->get(route('domain.search', [
+            'domain' => 'sandra',
+            'extensions' => ['.id', '.sbs'],
+        ]))->assertOk();
+
+        $response
+            ->assertSee('sandra.id')
+            ->assertSee('sandra.sbs')
+            ->assertSee('PREMIUM PER NAMA')
+            ->assertSee('Harga dan pemesanan premium ditentukan per nama');
+
+        $response
+            ->assertDontSee('name="domain_name" value="sandra.id"', false)
+            ->assertDontSee('name="domain_name" value="sandra.sbs"', false);
     }
 
     public function test_id_family_premium_search_result_uses_the_premium_tier(): void

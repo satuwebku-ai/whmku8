@@ -199,10 +199,6 @@ class DomainSearchController extends Controller
             ->get()
             ->keyBy('extension');
 
-        if ($premiumTiers->isEmpty() && $genericPremiumExtensions->isEmpty()) {
-            return;
-        }
-
         $extensions = collect($allTldPrices->keys()->all())
             ->sortByDesc(fn ($extension) => strlen($extension))
             ->values()
@@ -224,68 +220,22 @@ class DomainSearchController extends Controller
             }
 
             $label = substr($domainKey, 0, -strlen($extension));
-            $verified = null;
-            $isVerified = false;
-
-            // Ekstensi generik di halaman admin hanya menunjukkan TLD yang
-            // mendukung premium per nama. Status aktual harus dikonfirmasi
-            // ke DNAMA; tanpa konfirmasi jangan biarkan nama masuk ke keranjang
-            // reguler dengan harga yang salah.
-            if ($genericPremiumExtensions->has($extension)) {
-                if (($searchResults['results'][$domainName] ?? null) === false) {
-                    continue;
-                }
-
-                try {
-                    $verified = Cache::remember(
-                        "dnama-premium-check:{$domainKey}",
-                        now()->addMinutes(10),
-                        fn () => (new DnamaService($registrar))->checkPremiumStatus($domainKey)
-                    );
-                } catch (Throwable) {
-                    $verified = null;
-                }
-
-                $isVerified = is_array($verified) && ($verified['success'] ?? false);
-
-                if (! $isVerified) {
-                    $searchResults['results'][$domainName] = null;
-                    $searchResults['premium_check_unknown'][$domainKey] = true;
-                    continue;
-                }
-
-                if (($verified['available'] ?? null) === false) {
-                    $searchResults['results'][$domainName] = false;
-                    continue;
-                }
-
-                if (($verified['available'] ?? null) === true) {
-                    $searchResults['results'][$domainName] = true;
-                }
-
-                if ($verified['is_premium'] ?? false) {
-                    $searchResults['premium'][$domainKey] = [
-                        'type' => 'generic',
-                        'id' => $genericPremiumExtensions->get($extension)->id,
-                        'price' => 0,
-                        'price_formatted' => null,
-                        'verified' => true,
-                    ];
-                    continue;
-                }
-            }
-
             $tier = $premiumTiers->get($extension, collect())
                 ->first(fn (TldPremium $row) => strlen($label) <= (int) $row->max_premium_character);
 
-            if (! $tier) {
-                continue;
-            }
+            $tld = $allTldPrices->get($extension);
+            $isDnamaTld = $tld && (int) $tld->registrar_id === (int) $registrar->id;
+            $supportsPerNameCheck = $genericPremiumExtensions->has($extension)
+                || $premiumTiers->has($extension)
+                || $isDnamaTld;
+            $verified = null;
+            $isVerified = false;
 
-            // Jangan memanggil DNAMA lagi untuk domain yang sudah jelas
-            // terdaftar. Untuk domain lain, cache menghindari pemanggilan
-            // berulang saat pengunjung mengulangi pencarian yang sama.
-            if (! $isVerified && ($searchResults['results'][$domainName] ?? null) !== false) {
+            // Periksa status langsung ke DNAMA untuk ekstensi generik,
+            // ekstensi yang dikelola DNAMA, serta tier .id yang tidak cocok
+            // dengan panjang nama. Ini menangkap premium per-nama di luar
+            // daftar tier tetap tanpa menebak dari harga reguler.
+            if ($supportsPerNameCheck && ($searchResults['results'][$domainName] ?? null) !== false) {
                 try {
                     $verified = Cache::remember(
                         "dnama-premium-check:{$domainKey}",
@@ -302,31 +252,56 @@ class DomainSearchController extends Controller
             if ($isVerified) {
                 if (($verified['available'] ?? null) === false) {
                     $searchResults['results'][$domainName] = false;
+                    continue;
                 } elseif (($verified['available'] ?? null) === true) {
                     $searchResults['results'][$domainName] = true;
                 }
-
-                // Untuk premium bertingkat, aturan PANDI yang tersimpan
-                // di halaman TLD Premium menentukan klasifikasi berdasarkan
-                // panjang label. Flag is_premium DNAMA tidak boleh
-                // mengembalikannya ke harga reguler; DNAMA hanya memutakhirkan
-                // status ketersediaan domain di atas.
             }
 
-            // Harga publik selalu harga jual yang diisi admin, bukan harga
-            // modal hasil sinkronisasi DNAMA (cost_register).
-            $price = (float) ($tier->sell_register_price ?? 0);
-            $searchResults['premium'][$domainKey] = [
-                'type' => 'tier',
-                'id' => $tier->id,
-                'price' => $price,
-                'price_formatted' => 'Rp ' . number_format($price, 0, ',', '.'),
-                'verified' => $isVerified,
-            ];
+            // Kalau ada tier karakter yang cocok, aturan PANDI dan harga jual
+            // admin menang. Flag is_premium DNAMA tidak menurunkannya ke harga
+            // reguler.
+            if ($tier) {
+                // Jika DNAMA tidak bisa dihubungi, tier lokal tetap berlaku;
+                // catatan di halaman hanya menyebut status ketersediaan.
+                $price = (float) ($tier->sell_register_price ?? 0);
+                $searchResults['premium'][$domainKey] = [
+                    'type' => 'tier',
+                    'id' => $tier->id,
+                    'price' => $price,
+                    'price_formatted' => 'Rp ' . number_format($price, 0, ',', '.'),
+                    'verified' => $isVerified,
+                ];
+
+                continue;
+            }
+
+            if (! $supportsPerNameCheck) {
+                continue;
+            }
+
+            // Tanpa harga bertingkat yang cocok, status premium ditentukan
+            // per nama oleh DNAMA. Jika pemeriksaan gagal, tahan pesanan
+            // reguler supaya domain premium tidak salah terjual murah.
+            if (! $isVerified) {
+                $searchResults['results'][$domainName] = null;
+                $searchResults['premium_check_unknown'][$domainKey] = true;
+
+                continue;
+            }
+
+            if ($verified['is_premium'] ?? false) {
+                $searchResults['premium'][$domainKey] = [
+                    'type' => 'generic',
+                    'id' => $genericPremiumExtensions->get($extension)?->id,
+                    'price' => 0,
+                    'price_formatted' => null,
+                    'verified' => true,
+                ];
+            }
         }
 
-        // DNAMA dapat memastikan status domain meski RDAP tidak mendukung
-        // ekstensi .id; sinkronkan daftar "belum pasti" dengan hasil terbaru.
+        // Sinkronkan daftar "belum pasti" dengan pemeriksaan RDAP/DNAMA terbaru.
         $searchResults['unknown'] = array_keys(array_filter(
             $searchResults['results'],
             fn ($available) => $available === null
