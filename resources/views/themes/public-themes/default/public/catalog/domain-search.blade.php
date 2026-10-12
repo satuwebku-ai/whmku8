@@ -213,7 +213,7 @@
                             Harga premium belum diatur — hubungi admin.
                           @endif
                           @if ($premiumInfo['type'] === 'tier' && ! $premiumInfo['verified'])
-                            <span class="d-block" style="color:#b45309">Klasifikasi premium belum terkonfirmasi ke registry.</span>
+                            <span class="d-block" style="color:#b45309">Ketersediaan belum terkonfirmasi ke registry.</span>
                           @endif
                         </p>
                       @elseif ($premiumCheckUnknown)

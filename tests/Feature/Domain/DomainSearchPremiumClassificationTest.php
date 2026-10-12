@@ -162,6 +162,101 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertDontSee(route('domain.add-to-cart'), false);
     }
 
+    public function test_id_family_character_tier_uses_admin_sale_price_even_if_dnama_says_not_premium(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA PANDI Tier Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $extensions = [
+            '.co.id' => 18100000,
+            '.my.id' => 15700000,
+            '.web.id' => 12000000,
+        ];
+
+        foreach ($extensions as $extension => $sellPrice) {
+            $this->createTld($extension, 20000, $registrar->id);
+            TldPremium::create([
+                'registrar_id' => $registrar->id,
+                'extension' => $extension,
+                'is_premium' => true,
+                'max_premium_character' => 2,
+                'label' => "{$extension} (2 karakter) Premium",
+                'is_generic' => false,
+                'cost_register' => 1000000,
+                'sell_register_price' => $sellPrice,
+                'is_active' => true,
+            ]);
+        }
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+            'https://api.dnama.test/domain-availability*' => Http::response([
+                'data' => ['available' => true, 'is_premium' => false],
+            ]),
+        ]);
+
+        $response = $this->get(route('domain.search', [
+            'domain' => 'sa',
+            'extensions' => array_keys($extensions),
+        ]))->assertOk();
+
+        foreach ($extensions as $extension => $sellPrice) {
+            $response
+                ->assertSee("sa{$extension}")
+                ->assertSee('Rp ' . number_format($sellPrice, 0, ',', '.'));
+        }
+
+        $response->assertSee('PREMIUM');
+
+        foreach (array_keys($extensions) as $extension) {
+            $response->assertDontSee('name="domain_name" value="sa' . $extension . '"', false);
+        }
+    }
+
+    public function test_id_domain_longer_than_configured_character_tier_keeps_regular_price(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA PANDI Length Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.my.id', 20000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.my.id',
+            'is_premium' => true,
+            'max_premium_character' => 2,
+            'label' => '.my.id (2 karakter) Premium',
+            'is_generic' => false,
+            'sell_register_price' => 15700000,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response([], 404),
+        ]);
+
+        $this->get(route('domain.search', [
+            'domain' => 'nama',
+            'extensions' => ['.my.id'],
+        ]))
+            ->assertOk()
+            ->assertSee('nama.my.id')
+            ->assertSee('Rp 20.000')
+            ->assertSee(route('domain.add-to-cart'), false)
+            ->assertDontSee('PREMIUM');
+    }
+
     public function test_id_family_premium_search_result_uses_the_premium_tier(): void
     {
         $registrar = Registrar::create([

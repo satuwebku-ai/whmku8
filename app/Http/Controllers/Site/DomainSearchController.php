@@ -137,8 +137,9 @@ class DomainSearchController extends Controller
      * Sumber premium yang dipakai:
      * - Domain premium custom yang sudah diberi harga jual oleh admin.
      * - Semua baris harga bertingkat aktif dari halaman TLD Premium.
-     *   Keluarga .id mengikuti tingkat karakter PANDI dan harga jual
-     *   sell_register_price yang diatur admin.
+     *   Klasifikasi dan harga keluarga .id ditentukan oleh tingkat
+     *   karakter PANDI dan sell_register_price yang diatur admin; flag
+     *   is_premium dari DNAMA tidak menimpa aturan tier tersebut.
      * - Ekstensi generik yang terdaftar di halaman TLD Premium. DNAMA
      *   memeriksa status per nama; harga dan pemesanannya manual.
      */
@@ -305,11 +306,11 @@ class DomainSearchController extends Controller
                     $searchResults['results'][$domainName] = true;
                 }
 
-                // Registry adalah sumber final klasifikasi .id. Jika
-                // menyatakan domain reguler, biarkan memakai harga TLD biasa.
-                if (! ($verified['is_premium'] ?? false)) {
-                    continue;
-                }
+                // Untuk premium bertingkat, aturan PANDI yang tersimpan
+                // di halaman TLD Premium menentukan klasifikasi berdasarkan
+                // panjang label. Flag is_premium DNAMA tidak boleh
+                // mengembalikannya ke harga reguler; DNAMA hanya memutakhirkan
+                // status ketersediaan domain di atas.
             }
 
             // Harga publik selalu harga jual yang diisi admin, bukan harga
