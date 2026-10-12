@@ -222,7 +222,7 @@
       box.style.display = 'block';
       box.innerHTML = '<span class="text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Mengecek…</span>';
 
-      fetch('{{ route('domain-premium.check') }}', {
+      fetch('{{ \App\Support\StoreUrl::route('domain-premium.check') }}', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

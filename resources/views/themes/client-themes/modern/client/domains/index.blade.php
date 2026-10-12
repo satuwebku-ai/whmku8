@@ -52,7 +52,7 @@
           <i class="fa-solid fa-globe"></i>
         </span>
         <p class="text-muted mb-3" style="font-size:14px">Anda belum punya domain.</p>
-        <a href="{{ route('domain.search') }}" class="btn btn-theme"><i class="fa-solid fa-magnifying-glass" style="font-size:11px"></i> Cek Domain</a>
+        <a href="{{ \App\Support\StoreUrl::route('domain.search') }}" class="btn btn-theme"><i class="fa-solid fa-magnifying-glass" style="font-size:11px"></i> Cek Domain</a>
       </div>
     @endforelse
   </div>

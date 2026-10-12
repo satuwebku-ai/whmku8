@@ -33,7 +33,7 @@
   <div class="row g-3 g-lg-4">
     @foreach ($tiles as [$label, $desc, $route, $icon, $color])
       <div class="col-12 col-sm-6 col-lg-4">
-        <a href="{{ route($route) }}" class="store-tile" style="--tile:{{ $color }}">
+        <a href="{{ \App\Support\StoreUrl::route($route) }}" class="store-tile" style="--tile:{{ $color }}">
           <span class="store-tile__icon">
             <i class="fa-solid {{ $icon }}"></i>
             @if ($route === 'cart.index' && $cartCount > 0)

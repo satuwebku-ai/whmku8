@@ -54,15 +54,23 @@ class ProductGroup extends Model
     public function publicUrl(): string
     {
         return $this->productType
-            ? route('catalog.category', [$this->productType->slug, $this->slug])
-            : route('catalog.index');
+            ? \App\Support\StoreUrl::route('catalog.category', [$this->productType->slug, $this->slug])
+            : \App\Support\StoreUrl::route('catalog.index');
     }
 
-    public function productUrl(Product $product): string
+    /**
+     * @param  bool  $public  paksa alamat etalase PUBLIK (mis. untuk mengembalikan galat
+     *                        ke halaman publik asal), walau yang membuka klien login
+     */
+    public function productUrl(Product $product, bool $public = false): string
     {
-        return $this->productType
-            ? route('catalog.product', [$this->productType->slug, $this->slug, $product->slug])
-            : route('catalog.index');
+        if (! $this->productType) {
+            return $public ? route('catalog.index') : \App\Support\StoreUrl::route('catalog.index');
+        }
+
+        $params = [$this->productType->slug, $this->slug, $product->slug];
+
+        return $public ? route('catalog.product', $params) : \App\Support\StoreUrl::route('catalog.product', $params);
     }
 
     protected function casts(): array

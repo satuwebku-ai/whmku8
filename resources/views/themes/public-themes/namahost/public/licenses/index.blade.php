@@ -12,9 +12,9 @@
 
     @if ($categories->isNotEmpty() && $all->isNotEmpty())
       <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
-        <a href="{{ route('license.index') }}" class="btn btn-sm rounded-pill px-3 {{ $activeCategory ? 'btn-outline-secondary' : 'btn-theme' }}">Semua ({{ $all->count() }})</a>
+        <a href="{{ \App\Support\StoreUrl::route('license.index') }}" class="btn btn-sm rounded-pill px-3 {{ $activeCategory ? 'btn-outline-secondary' : 'btn-theme' }}">Semua ({{ $all->count() }})</a>
         @foreach ($categories as $key => $cat)
-          <a href="{{ route('license.index', ['kategori' => $key]) }}" class="btn btn-sm rounded-pill px-3 {{ $activeCategory === $key ? 'btn-theme' : 'btn-outline-secondary' }}">{{ $cat['label'] }} ({{ $cat['count'] }})</a>
+          <a href="{{ \App\Support\StoreUrl::route('license.index', ['kategori' => $key]) }}" class="btn btn-sm rounded-pill px-3 {{ $activeCategory === $key ? 'btn-theme' : 'btn-outline-secondary' }}">{{ $cat['label'] }} ({{ $cat['count'] }})</a>
         @endforeach
       </div>
     @endif
@@ -59,9 +59,9 @@
             </div>
 
             <div class="d-flex gap-2">
-              <a href="{{ route('license.show', $license->slug) }}" class="btn btn-outline-secondary flex-fill">Detail</a>
+              <a href="{{ \App\Support\StoreUrl::route('license.show', $license->slug) }}" class="btn btn-outline-secondary flex-fill">Detail</a>
               @if ($license->requiresIp())
-                <a href="{{ route('license.show', $license->slug) }}" class="btn btn-theme flex-fill"><i class="fa-solid fa-cart-plus me-1"></i> Pesan</a>
+                <a href="{{ \App\Support\StoreUrl::route('license.show', $license->slug) }}" class="btn btn-theme flex-fill"><i class="fa-solid fa-cart-plus me-1"></i> Pesan</a>
               @else
                 <form method="POST" action="{{ route('cart.add-addon') }}" class="flex-fill">
                   @csrf

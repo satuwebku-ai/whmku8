@@ -18,12 +18,15 @@
   $siteLogo = \App\Models\Setting::get('site_logo');
   $siteIcon = \App\Models\Setting::get('site_icon');
 
+  // [label, route PUBLIK (diubah StoreUrl bila klien login), ikon, pola route aktif di Store]
+  // Klien login: tautan menuju halaman Store (/store/...); tamu: etalase publik, tanpa status aktif.
+  $isVpsSection = request()->route('section') === 'vps';
   $storeLinks = [
-    ['Store', 'store.index', 'fa-store'],
-    ['Hosting', 'catalog.index', 'fa-server'],
-    ['VPS', 'catalog.vps', 'fa-cloud'],
-    ['Domain', 'domain.search', 'fa-globe'],
-    ['Lisensi', 'license.index', 'fa-key'],
+    ['Store', 'store.index', 'fa-store', ['store.index']],
+    ['Hosting', 'catalog.index', 'fa-server', $isVpsSection ? [] : ['store.hosting', 'store.category', 'store.product']],
+    ['VPS', 'catalog.vps', 'fa-cloud', $isVpsSection ? ['store.category', 'store.product'] : ['store.vps']],
+    ['Domain', 'domain.search', 'fa-globe', ['store.domain', 'store.transfer', 'store.domain-premium']],
+    ['Lisensi', 'license.index', 'fa-key', ['store.license', 'store.license.show']],
   ];
 
   $inCart = request()->routeIs('cart.*', 'client.checkout*');
@@ -113,8 +116,9 @@
     </a>
 
     <nav class="store-topbar__nav d-none d-md-flex" aria-label="Etalase">
-      @foreach ($storeLinks as [$label, $route, $icon])
-        <a href="{{ route($route) }}" class="store-topbar__link {{ request()->routeIs($route) ? 'is-active' : '' }}" @if (request()->routeIs($route)) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
+      @foreach ($storeLinks as [$label, $route, $icon, $activeOn])
+        @php $linkOn = $activeOn && request()->routeIs(...$activeOn); @endphp
+        <a href="{{ \App\Support\StoreUrl::route($route) }}" class="store-topbar__link {{ $linkOn ? 'is-active' : '' }}" @if ($linkOn) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
       @endforeach
     </nav>
 
@@ -140,8 +144,9 @@
   </div>
 
   <nav class="store-topbar__mobile d-md-none" aria-label="Etalase">
-    @foreach ($storeLinks as [$label, $route, $icon])
-      <a href="{{ route($route) }}" class="store-topbar__link {{ request()->routeIs($route) ? 'is-active' : '' }}" @if (request()->routeIs($route)) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
+    @foreach ($storeLinks as [$label, $route, $icon, $activeOn])
+      @php $linkOn = $activeOn && request()->routeIs(...$activeOn); @endphp
+        <a href="{{ \App\Support\StoreUrl::route($route) }}" class="store-topbar__link {{ $linkOn ? 'is-active' : '' }}" @if ($linkOn) aria-current="page" @endif><i class="fa-solid {{ $icon }}"></i> {{ $label }}</a>
     @endforeach
   </nav>
 </header>

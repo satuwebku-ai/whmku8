@@ -53,7 +53,7 @@ class ClientMenu
             // Store -- SATU menu menuju halaman /store (portal client): berisi pintasan
             // ke semua menu jualan (hosting, VPS, domain, lisensi) dan keranjang.
             // Aktif di /store dan di halaman jualan/keranjang di bawahnya.
-            ['Store', 'store.index', ['store.index', 'catalog.*', 'domain.*', 'domains.transfer*', 'domain-premium.*', 'license.*', 'cart.*'], ['fa' => 'fa-store', 'bi' => 'bi-shop']],
+            ['Store', 'store.index', ['store.*', 'catalog.*', 'domain.*', 'domains.transfer*', 'domain-premium.*', 'license.*', 'cart.*'], ['fa' => 'fa-store', 'bi' => 'bi-shop']],
 
             // Layanan & akun klien.
             ['Layanan Saya', 'client.services', 'client.services*', ['fa' => 'fa-server', 'bi' => 'bi-server']],

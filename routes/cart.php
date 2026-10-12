@@ -1,9 +1,14 @@
 <?php
 
 use App\Http\Controllers\Site\CartController;
+use App\Http\Controllers\Site\CatalogController;
 use App\Http\Controllers\Site\DomainSearchController;
+use App\Http\Controllers\Site\LicenseController;
+use App\Http\Controllers\Site\PremiumDomainController;
 use App\Http\Controllers\Site\StoreController;
+use App\Http\Middleware\RedirectStoreGuestsToPublic;
 use App\Http\Middleware\RequirePortalOrigin;
+use App\Models\ProductType;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -46,3 +51,33 @@ Route::controller(CartController::class)->prefix('keranjang')->name('cart.')->gr
 // Halaman utama Store (/store): pintasan ke semua menu jualan dan keranjang.
 // Diletakkan setelah route keranjang; path "/" di bawah prefix /store tidak bentrok.
 Route::get('/', [StoreController::class, 'index'])->name('store.index');
+
+// Halaman jualan di dalam Store (portal member), untuk klien yang login:
+// /store/hosting, /store/vps, /store/domain, /store/lisensi, dst. Memakai
+// controller dan view yang sama dengan etalase publik (tampil dalam layout
+// toko portal member); tamu dialihkan ke etalase publik oleh middleware.
+// Alamat publik TIDAK berubah (routes/store.php) -- lihat App\Support\StoreUrl.
+$storeSections = ProductType::sectionPattern();
+
+Route::middleware(RedirectStoreGuestsToPublic::class)->group(function () use ($storeSections) {
+    Route::get('hosting', [CatalogController::class, 'indexBootstrap'])->name('store.hosting');
+    Route::get('vps', [CatalogController::class, 'vpsBootstrap'])->name('store.vps');
+
+    Route::get('lisensi', [LicenseController::class, 'index'])->name('store.license');
+    Route::get('lisensi/{slug}', [LicenseController::class, 'show'])->name('store.license.show');
+
+    Route::get('domain', [DomainSearchController::class, 'searchBootstrap'])->name('store.domain');
+    Route::get('transfer-domain', [DomainSearchController::class, 'transferFormBootstrap'])->name('store.transfer');
+    Route::get('domain-premium', [PremiumDomainController::class, 'indexBootstrap'])->name('store.domain-premium');
+
+    // Segmen {section} = slug jenis produk (tabel product_types), sama seperti etalase publik.
+    Route::get('{section}/{category}', [CatalogController::class, 'categoryBootstrap'])
+        ->name('store.category')
+        ->where('section', $storeSections);
+    Route::get('{section}/{category}/{product}', [CatalogController::class, 'productBootstrap'])
+        ->name('store.product')
+        ->where('section', $storeSections);
+});
+
+// Pengecekan ketersediaan domain premium (AJAX dari halamannya; CSRF normal).
+Route::post('domain-premium/cek', [PremiumDomainController::class, 'check'])->name('store.domain-premium.check');

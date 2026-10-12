@@ -41,10 +41,10 @@
       <div class="card-public overflow-hidden">
         <div class="px-3 py-3 fw-semibold text-white" style="background:#1e293b;font-size:14px">Aksi</div>
         <div>
-          <a href="{{ route('domain.search') }}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-muted border-bottom" style="font-size:14px">
+          <a href="{{ \App\Support\StoreUrl::route('domain.search') }}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-muted border-bottom" style="font-size:14px">
             <i class="fa-solid fa-globe text-center" style="width:16px"></i> Daftarkan Domain Baru
           </a>
-          <a href="{{ route('catalog.index') }}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-muted border-bottom" style="font-size:14px">
+          <a href="{{ \App\Support\StoreUrl::route('catalog.index') }}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-muted border-bottom" style="font-size:14px">
             <i class="fa-solid fa-server text-center" style="width:16px"></i> Lihat Paket Hosting
           </a>
           <span class="d-flex align-items-center gap-2 px-3 py-2 fw-medium text-theme" style="font-size:14px;background:rgba(79,70,229,.05)">
@@ -60,7 +60,7 @@
         <div class="card-public p-5 text-center">
           <i class="fa-solid fa-cart-shopping text-muted mb-3" style="font-size:2rem"></i>
           <p class="text-muted mb-4">Keranjang Anda masih kosong.</p>
-          <a href="{{ route('catalog.index') }}" class="btn btn-theme">Lihat Paket Hosting</a>
+          <a href="{{ \App\Support\StoreUrl::route('catalog.index') }}" class="btn btn-theme">Lihat Paket Hosting</a>
         </div>
       @else
         <div class="row g-4">
@@ -229,7 +229,7 @@
               <a href="{{ route('client.checkout') }}" class="btn btn-theme w-100">
                 <i class="fa-solid fa-lock" style="font-size:12px"></i> Lanjut ke Checkout
               </a>
-              <a href="{{ route('catalog.index') }}" class="btn btn-outline-secondary w-100 mt-2">Lanjut Belanja</a>
+              <a href="{{ \App\Support\StoreUrl::route('catalog.index') }}" class="btn btn-outline-secondary w-100 mt-2">Lanjut Belanja</a>
             </div>
           </div>
         </div>

@@ -58,10 +58,10 @@
 
     @if (! empty($chips))
       <div class="store-chips" style="max-width:100%">
-        <a href="{{ route('catalog.index') }}" class="store-chip"><i class="fa-solid fa-server"></i> Hosting</a>
-        <a href="{{ route('catalog.vps') }}" class="store-chip"><i class="fa-solid fa-cloud"></i> VPS</a>
-        <a href="{{ route('domain.search') }}" class="store-chip"><i class="fa-solid fa-globe"></i> Domain</a>
-        <a href="{{ route('license.index') }}" class="store-chip"><i class="fa-solid fa-key"></i> Lisensi</a>
+        <a href="{{ \App\Support\StoreUrl::route('catalog.index') }}" class="store-chip"><i class="fa-solid fa-server"></i> Hosting</a>
+        <a href="{{ \App\Support\StoreUrl::route('catalog.vps') }}" class="store-chip"><i class="fa-solid fa-cloud"></i> VPS</a>
+        <a href="{{ \App\Support\StoreUrl::route('domain.search') }}" class="store-chip"><i class="fa-solid fa-globe"></i> Domain</a>
+        <a href="{{ \App\Support\StoreUrl::route('license.index') }}" class="store-chip"><i class="fa-solid fa-key"></i> Lisensi</a>
       </div>
     @endif
   </div>

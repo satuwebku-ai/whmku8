@@ -80,7 +80,7 @@ class CartController extends Controller
     {
         $product = Product::with('category')->find((int) $request->input('product_id'));
 
-        return $product?->category?->productUrl($product);
+        return $product?->category?->productUrl($product, public: true);
     }
 
     /** Halaman lisensi publik tempat form dikirim. */

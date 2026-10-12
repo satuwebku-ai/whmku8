@@ -28,7 +28,7 @@
         Domain <span style="color:#f5a524">keren</span> bikin websitemu gampang diingat
       </h1>
 
-      <form method="GET" action="{{ route('domain.search') }}" id="searchForm"
+      <form method="GET" action="{{ \App\Support\StoreUrl::route('domain.search') }}" id="searchForm"
             class="bg-white rounded-4 p-2 d-flex flex-column flex-sm-row gap-2 shadow">
         <div class="d-flex align-items-center gap-2 flex-grow-1 px-3">
           <i class="fa-solid fa-globe text-muted"></i>
@@ -47,7 +47,7 @@
 
       <p class="text-white mt-3 mb-0" style="opacity:.4;font-size:12px">
         Sudah punya domain di tempat lain?
-        <a href="{{ route('domains.transfer') }}" class="text-white text-decoration-underline" style="opacity:.7">Transfer ke sini</a>
+        <a href="{{ \App\Support\StoreUrl::route('domains.transfer') }}" class="text-white text-decoration-underline" style="opacity:.7">Transfer ke sini</a>
       </p>
     </div>
   </section>
@@ -235,7 +235,7 @@
               @endforeach
             </div>
 
-            <a href="{{ route('catalog.index', ['dari_domain' => 1]) }}" class="btn btn-theme">
+            <a href="{{ \App\Support\StoreUrl::route('catalog.index', ['dari_domain' => 1]) }}" class="btn btn-theme">
               Lanjut <i class="fa-solid fa-arrow-right" style="font-size:12px"></i>
             </a>
           </div>

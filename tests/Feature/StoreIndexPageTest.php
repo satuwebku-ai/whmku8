@@ -25,10 +25,11 @@ class StoreIndexPageTest extends TestCase
             ->assertOk()
             ->assertSee('store-topbar', false)
             ->assertDontSee('id="clientTopbar"', false)
-            ->assertSee(route('catalog.index'), false)
-            ->assertSee(route('catalog.vps'), false)
-            ->assertSee(route('domain.search'), false)
-            ->assertSee(route('license.index'), false)
+            // Klien login memakai halaman Store miliknya, bukan etalase publik.
+            ->assertSee(route('store.hosting'), false)
+            ->assertSee(route('store.vps'), false)
+            ->assertSee(route('store.domain'), false)
+            ->assertSee(route('store.license'), false)
             ->assertSee(route('cart.index'), false)
             ->assertSee('Pesan Hosting')
             ->assertSee('Pesan VPS')
@@ -39,7 +40,12 @@ class StoreIndexPageTest extends TestCase
 
     public function test_guests_can_open_the_store_page(): void
     {
-        $this->get(route('store.index'))->assertOk()->assertSee('Pesan Hosting');
+        $this->get(route('store.index'))
+            ->assertOk()
+            ->assertSee('Pesan Hosting')
+            // Tamu tetap diarahkan ke etalase publik.
+            ->assertSee(route('catalog.index'), false)
+            ->assertDontSee(route('store.hosting'), false);
     }
 
     public function test_the_store_link_in_the_header_is_marked_active(): void

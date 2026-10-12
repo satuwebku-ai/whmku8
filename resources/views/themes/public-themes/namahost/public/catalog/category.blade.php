@@ -9,9 +9,9 @@
 
   <nav class="text-muted mb-3" style="font-size:12px">
     @if ($category->productType?->kind === 'vps')
-      <a href="{{ route('catalog.vps') }}" class="text-decoration-none text-muted">VPS</a> / {{ $category->name }}
+      <a href="{{ \App\Support\StoreUrl::route('catalog.vps') }}" class="text-decoration-none text-muted">VPS</a> / {{ $category->name }}
     @else
-      <a href="{{ route('catalog.index') }}" class="text-decoration-none text-muted">Hosting</a> / {{ $category->name }}
+      <a href="{{ \App\Support\StoreUrl::route('catalog.index') }}" class="text-decoration-none text-muted">Hosting</a> / {{ $category->name }}
     @endif
   </nav>
 
