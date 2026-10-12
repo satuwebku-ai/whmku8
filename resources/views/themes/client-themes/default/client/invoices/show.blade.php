@@ -1,10 +1,24 @@
 @extends('client.layout')
 @section('title', $invoice->invoice_number)
+@if (session('checkout_completed'))
+  @section('store-mode', '1') {{-- langkah 3 alur belanja --}}
+@endif
 
 @section('content')
   @php
     $badgeMap = ['unpaid' => 'badge-soft-warning', 'paid' => 'badge-soft-success', 'overdue' => 'badge-soft-danger', 'cancelled' => 'badge-soft-secondary'];
   @endphp
+
+  {{-- Tepat setelah checkout: lanjutan alur belanja, langkah 3 (Pembayaran). --}}
+  @if (session('checkout_completed'))
+    @include('partials.store-hero', [
+      'title'    => 'Pesanan Diterima',
+      'subtitle' => $invoice->status === 'paid'
+        ? 'Invoice ' . $invoice->invoice_number . ' sudah lunas.'
+        : 'Selesaikan pembayaran invoice ' . $invoice->invoice_number . ' di bawah ini untuk mengaktifkan layanan Anda.',
+      'step'     => 3,
+    ])
+  @endif
 
   <a href="{{ route('client.invoices') }}" class="text-decoration-none text-muted" style="font-size:12px">&larr; Kembali ke Invoice</a>
 

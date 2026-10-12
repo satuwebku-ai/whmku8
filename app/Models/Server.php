@@ -18,7 +18,7 @@ class Server extends Model
     public const INACTIVE_ACCOUNT_STATUSES = ['cancelled', 'terminated'];
 
     protected $fillable = [
-        'name', 'hostname', 'ns1', 'ns2', 'port', 'panel', 'vps_provider', 'api_username', 'api_token', 'server_group_id',
+        'name', 'hostname', 'ns1', 'ns2', 'port', 'panel', 'vps_provider', 'api_username', 'api_token',
         'verify_ssl', 'max_accounts', 'priority', 'is_active', 'is_maintenance', 'last_checked_at', 'last_check_status',
         'price_per_vcpu_hour', 'price_per_ram_gb_hour', 'price_per_storage_gb_hour',
         'price_per_backup_gb_hour', 'price_per_snapshot_gb_hour', 'price_windows_license_per_vcpu_hour',

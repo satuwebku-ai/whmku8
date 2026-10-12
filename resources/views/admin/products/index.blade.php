@@ -64,7 +64,7 @@
           @endif
         </div>
         <span class="badge badge-soft-secondary">{{ $group->products->count() }} produk</span>
-        <a href="{{ route('admin.product-categories.edit', $group) }}" class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation()" title="Edit grup">
+        <a href="{{ route('admin.product-categories.edit', $group) }}" class="btn btn-outline-secondary btn-sm" title="Edit grup">
           <i class="fa-regular fa-pen-to-square" style="font-size:12px"></i>
         </a>
       </div>
@@ -177,7 +177,7 @@
     </div>
   @endforelse
 
-  <script>
+  <script @nonce>
     document.querySelectorAll('[data-grp-all]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var open = btn.dataset.grpAll === 'open';

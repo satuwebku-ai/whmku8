@@ -72,18 +72,15 @@ class ThemeRegistry
     /**
      * Layout induk untuk halaman toko (katalog, domain, lisensi, keranjang).
      *
-     * Klien yang sudah login melihat toko DI DALAM portal client (sidebar,
-     * menu, dan tema client). Itu hanya dilakukan bila tema Publik dan tema
-     * Client yang aktif sama: view toko ditulis dengan CSS tema Publik, dan
-     * layout client dari tema lain memuat CSS yang berbeda sehingga tampilannya
-     * bisa berantakan. Tamu, atau tema yang berbeda, memakai layout publik.
+     * Ditentukan oleh DOMAIN, bukan status login: di domain client (keranjang dan
+     * checkout) selalu layout portal client dalam mode store -- klien login maupun
+     * tamu -- supaya satu pengalaman belanja; di domain publik (etalase) layout
+     * publik. Supaya CSS view toko cocok dengan layout client walau tema Publik
+     * dan Client berbeda, view toko di domain client di-resolve dari tema Client
+     * -- lihat App\Http\Middleware\UseClientThemeForStore.
      */
     public static function storeLayout(): string
     {
-        if (! auth('client')->check()) {
-            return 'public.layout';
-        }
-
-        return self::active('public') === self::active('client') ? 'client.layout' : 'public.layout';
+        return request()->getHost() === config('portal_domains.client') ? 'client.layout' : 'public.layout';
     }
 }

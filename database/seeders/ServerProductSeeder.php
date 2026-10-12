@@ -21,9 +21,17 @@ use Illuminate\Support\Facades\DB;
  *
  * Aman dijalankan berulang: semua data dicari dulu (firstOrCreate), jadi
  * yang sudah ada -- termasuk yang sudah Anda ubah lewat admin -- tidak ditimpa.
+ * Satu pengecualian: produk hosting dengan kategori+nama sama yang dibuat
+ * DemoDataSeeder tanpa server dilengkapi dengan grup server (lihat adoptIfUnassigned()).
+ * DemoDataSeeder juga membuat kategori "VPS" sendiri; yang di sini bernama "Cloud VPS",
+ * jadi keduanya tampil di katalog /vps kalau dijalankan bersamaan.
  *
- * PENTING: hostname & API token server di bawah hanya CONTOH. Ganti lewat
- * Admin » Infrastruktur » Server sebelum dipakai menerima order sungguhan.
+ * KEAMANAN: server di bawah sengaja dibuat NONAKTIF dengan hostname berakhiran
+ * .invalid (tidak pernah bisa di-resolve) dan token contoh. Saat order hosting
+ * diproses, panel dihubungi dengan nama pengguna, kata sandi akun, dan domain
+ * pelanggan; hostname contoh yang bisa didaftarkan siapa pun akan membocorkannya.
+ * Isi hostname dan API token asli lewat Admin » Infrastruktur » Server, lalu
+ * aktifkan servernya. Selama nonaktif, produk belum bisa dipesan.
  */
 class ServerProductSeeder extends Seeder
 {
@@ -56,7 +64,7 @@ class ServerProductSeeder extends Seeder
             'Selesai: %d jenis, %d grup produk, %d server, %d grup server, %d produk.',
             ProductType::count(), ProductGroup::count(), Server::count(), ServerGroup::count(), Product::count()
         ));
-        $this->command?->warn('Ganti hostname & API token server contoh lewat Admin » Infrastruktur » Server.');
+        $this->command?->warn('Server contoh NONAKTIF: isi hostname & API token asli lewat Admin » Infrastruktur » Server, lalu aktifkan.');
     }
 
     /** @return array<string, ProductType> */
@@ -79,18 +87,18 @@ class ServerProductSeeder extends Seeder
     private function servers(): array
     {
         $cpanel = fn (string $host, int $max, int $priority) => [
-            'hostname' => $host, 'ns1' => 'ns1.contoh.com', 'ns2' => 'ns2.contoh.com',
+            'hostname' => $host, 'ns1' => 'ns1.contoh.invalid', 'ns2' => 'ns2.contoh.invalid',
             'port' => 2087, 'panel' => 'cpanel', 'api_username' => 'root',
             'api_token' => self::PLACEHOLDER_TOKEN, 'verify_ssl' => true,
             'max_accounts' => $max, 'priority' => $priority,
-            'is_active' => true, 'is_maintenance' => false,
+            'is_active' => false, 'is_maintenance' => false,
         ];
 
         $servers = [
-            'shared1'   => ['Shared JKT-01', $cpanel('srv1.contoh.com', 500, 1)],
-            'shared2'   => ['Shared JKT-02', $cpanel('srv2.contoh.com', 500, 2)],
-            'wordpress' => ['WordPress JKT-01', $cpanel('wp1.contoh.com', 300, 1)],
-            'reseller'  => ['Reseller JKT-01', $cpanel('rs1.contoh.com', 200, 1)],
+            'shared1'   => ['Shared JKT-01', $cpanel('srv1.contoh.invalid', 500, 1)],
+            'shared2'   => ['Shared JKT-02', $cpanel('srv2.contoh.invalid', 500, 2)],
+            'wordpress' => ['WordPress JKT-01', $cpanel('wp1.contoh.invalid', 300, 1)],
+            'reseller'  => ['Reseller JKT-01', $cpanel('rs1.contoh.invalid', 200, 1)],
         ];
 
         $made = [];
@@ -106,7 +114,7 @@ class ServerProductSeeder extends Seeder
                 'hostname' => 'jkt01', 'api_username' => '', 'api_token' => self::PLACEHOLDER_TOKEN,
                 'panel' => 'vps', 'vps_provider' => 'idcloudhost',
                 'verify_ssl' => true, 'max_accounts' => null, 'priority' => 1,
-                'is_active' => true, 'is_maintenance' => false,
+                'is_active' => false, 'is_maintenance' => false,
                 'pricing_mode' => 'manual',
             ] + self::VPS_RATES
         );
@@ -176,7 +184,7 @@ class ServerProductSeeder extends Seeder
         $order = 1;
         foreach ($defs as $slug => [$name, $kind, $icon, $description]) {
             $groups[$slug] = ProductGroup::firstOrCreate(['slug' => $slug], [
-                'name' => $name, 'type' => $kind, 'product_type_id' => $types[$kind]->id,
+                'name' => $name, 'product_type_id' => $types[$kind]->id,
                 'description' => $description, 'icon' => $icon, 'is_active' => true, 'sort_order' => $order++,
             ]);
         }
@@ -231,7 +239,7 @@ class ServerProductSeeder extends Seeder
         $order = 1;
         foreach ($catalog as $groupSlug => $def) {
             foreach ($def['products'] as [$name, $tagline, $package, $prices, $featured, $features]) {
-                Product::firstOrCreate(
+                $product = Product::firstOrCreate(
                     ['product_category_id' => $groups[$groupSlug]->id, 'name' => $name],
                     [
                         'tagline' => $tagline,
@@ -250,8 +258,28 @@ class ServerProductSeeder extends Seeder
                         'sort_order' => $order++,
                     ]
                 );
+
+                $this->adoptIfUnassigned($product, $serverGroups[$groupSlug], $package);
             }
         }
+    }
+
+    /**
+     * Produk dengan kategori+nama yang sama bisa sudah dibuat DemoDataSeeder tanpa
+     * server. firstOrCreate() tidak menyentuhnya, sehingga produk itu tidak bisa
+     * dipesan. Hanya bila produk BELUM punya sumber server sama sekali, lengkapi
+     * dengan grup server dan paket WHM -- yang sudah diatur admin tidak diubah.
+     */
+    private function adoptIfUnassigned(Product $product, ServerGroup $serverGroup, string $package): void
+    {
+        if ($product->wasRecentlyCreated || $product->server_id !== null || $product->server_group_id !== null) {
+            return;
+        }
+
+        $product->update([
+            'server_group_id' => $serverGroup->id,
+            'panel_package' => $product->panel_package ?: $package,
+        ]);
     }
 
     /**

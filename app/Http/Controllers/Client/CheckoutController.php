@@ -234,10 +234,14 @@ class CheckoutController extends Controller
             );
         }
 
-        return redirect()->route('client.invoices.show', $invoice)->with(
-            'success',
-            "Pesanan {$invoice->invoice_number} berhasil dibuat! Pilih metode pembayaran di bawah untuk mengaktifkan layanan Anda."
-        );
+        // checkout_completed: invoice menampilkan header belanja langkah 3
+        // (Pembayaran) -- hanya sekali, tepat setelah pesanan dibuat.
+        return redirect()->route('client.invoices.show', $invoice)
+            ->with('checkout_completed', true)
+            ->with(
+                'success',
+                "Pesanan {$invoice->invoice_number} berhasil dibuat! Pilih metode pembayaran di bawah untuk mengaktifkan layanan Anda."
+            );
     }
 
     /**

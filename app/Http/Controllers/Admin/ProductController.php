@@ -106,7 +106,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Kategori VPS (product_groups.type='vps') WAJIB dipasangkan dengan
+     * Kategori VPS (jenis produk berperilaku VPS) WAJIB dipasangkan dengan
      * server cloud. Tanpa ini, produk yang tampak VPS di menu/URL publik
      * (kategorinya) tapi tidak punya server cloud akan nyasar tampil di
      * bagian "Paket Hosting Pilihan" halaman depan (lihat
@@ -116,7 +116,7 @@ class ProductController extends Controller
      */
     private function assertCategoryMatchesServer(array $data): void
     {
-        $isVpsCategory = ProductGroup::where('id', $data['product_category_id'])->where('type', 'vps')->exists();
+        $isVpsCategory = (bool) ProductGroup::find($data['product_category_id'])?->isVps();
         $isCloudServer = ! empty($data['server_id']) && Server::cloud()->whereKey($data['server_id'])->exists();
 
         if ($isVpsCategory && ! $isCloudServer) {

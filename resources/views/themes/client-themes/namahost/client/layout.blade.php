@@ -11,6 +11,10 @@
   $isImpersonating = (bool) session('impersonator_admin_id');
 
   $menu = \App\Support\ClientMenu::items('bi', $cartCount);
+
+  // Mode store: halaman belanja (keranjang, checkout) memakai header store, bukan
+  // sidebar dashboard. Diaktifkan dengan @section('store-mode').
+  $isStore = $__env->hasSection('store-mode');
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -47,8 +51,13 @@
     </div>
   @endif
 
+  @if ($isStore)
+    @include('partials.store-topbar')
+  @endif
+
   <div class="d-lg-flex">
 
+    @unless ($isStore)
     {{-- Sidebar --}}
     <aside class="sidebar p-3 flex-shrink-0" data-bs-theme="dark" style="{{ $isImpersonating ? '--imp:41px' : '' }}">
       <div class="d-flex justify-content-between align-items-center mb-3 mb-lg-4">
@@ -104,6 +113,7 @@
         </ul>
       </nav>
     </aside>
+    @endunless
 
     {{-- Konten --}}
     <main class="flex-grow-1 p-3 p-lg-4 min-w-0">

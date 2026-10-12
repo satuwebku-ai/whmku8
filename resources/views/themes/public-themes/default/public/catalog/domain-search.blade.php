@@ -193,7 +193,7 @@
                     </div>
 
                     @if ($available === true)
-                      <form method="POST" action="{{ route('domain.add-to-cart') }}" data-add-domain class="d-flex align-items-center gap-2 flex-shrink-0">
+                      <form method="POST" action="{{ route('domain.add-to-cart') }}" class="d-flex align-items-center gap-2 flex-shrink-0">
                         @csrf
                         <input type="hidden" name="domain_name" value="{{ $domainName }}">
                         <input type="hidden" name="tld_id" value="{{ $tld->id ?? '' }}">
@@ -241,28 +241,6 @@
           </div>
         @endif
       </div>
-    </div>
-  </div>
-
-  {{-- Badge keranjang mengambang — sengaja fixed (bukan ikut scroll di
-       dalam daftar hasil), supaya tetap terlihat berapa domain yang sudah
-       ditambahkan meski sedang scroll jauh ke bawah daftar hasil.
-       Ditaruh kiri bawah supaya tidak tumpang tindih dengan widget
-       live chat yang sudah ada di kanan bawah. --}}
-  <div id="floatingCartBadge" class="position-fixed d-none" style="left:20px;bottom:20px;z-index:1050">
-    <a href="{{ route('cart.index') }}" class="d-flex align-items-center gap-2 text-decoration-none rounded-pill shadow" style="background:#1e293b;color:#fff;padding:.75rem 1.25rem .75rem 1rem">
-      <span class="position-relative">
-        <i class="fa-solid fa-cart-shopping"></i>
-        <span id="floatingCartCount" class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-bold text-white" style="top:-8px;right:-8px;width:16px;height:16px;font-size:9px;background:var(--lumora-theme)">0</span>
-      </span>
-      <span class="fw-medium" style="font-size:14px">Lihat Keranjang</span>
-    </a>
-  </div>
-
-  <div id="toastBox" class="position-fixed d-none" style="left:20px;bottom:96px;z-index:1055;max-width:20rem">
-    <div id="toastInner" class="d-flex align-items-center gap-2 rounded-3 px-3 py-2 shadow text-white" style="background:#059669;font-size:14px">
-      <i class="fa-solid fa-circle-check flex-shrink-0"></i>
-      <span id="toastMsg"></span>
     </div>
   </div>
 
@@ -314,81 +292,6 @@
       sync();
     })();
 
-    (function () {
-      const badge      = document.getElementById('floatingCartBadge');
-      const badgeCount = document.getElementById('floatingCartCount');
-      const topbarBadge = document.getElementById('cartBadge');
-      const toast      = document.getElementById('toastBox');
-      const toastInner = document.getElementById('toastInner');
-      const toastMsg   = document.getElementById('toastMsg');
-      let toastTimer = null;
-
-      function updateCartCount(n) {
-        badgeCount.textContent = n;
-        badge.classList.toggle('d-none', n <= 0);
-
-        if (topbarBadge) {
-          topbarBadge.textContent = n;
-          topbarBadge.classList.toggle('d-none', n <= 0);
-        }
-      }
-
-      function showToast(message, isError) {
-        toastMsg.textContent = message;
-        toastInner.style.background = isError ? '#e11d48' : '#059669';
-        toast.classList.remove('d-none');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('d-none'), 3500);
-      }
-
-      // Mulai dari jumlah yang sudah dirender server di topbar, supaya
-      // badge mengambang langsung akurat kalau keranjang sudah berisi
-      // sesuatu dari kunjungan sebelumnya.
-      updateCartCount(parseInt(topbarBadge?.textContent || '0', 10));
-
-      document.querySelectorAll('form[data-add-domain]').forEach(function (form) {
-        form.addEventListener('submit', async function (e) {
-          e.preventDefault();
-
-          const btn = form.querySelector('button[type="submit"]');
-          const originalHtml = btn.innerHTML;
-          btn.disabled = true;
-          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:11px"></i>';
-
-          try {
-            const res = await fetch(form.action, {
-              method: 'POST',
-              headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
-                'Accept': 'application/json',
-              },
-              body: new FormData(form),
-            });
-            const data = await res.json();
-
-            showToast(data.message, !data.success);
-
-            if (data.success) {
-              updateCartCount(data.cart_count);
-              btn.innerHTML = '<i class="fa-solid fa-check" style="font-size:11px"></i> Ditambahkan';
-              // Tombol dikembalikan normal setelah sebentar — klien tetap
-              // bisa menambah domain lain kapan saja, tidak terkunci.
-              setTimeout(function () {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-              }, 1500);
-            } else {
-              btn.innerHTML = originalHtml;
-              btn.disabled = false;
-            }
-          } catch (err) {
-            showToast('Gagal menambah domain. Periksa koneksi Anda dan coba lagi.', true);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-          }
-        });
-      });
-    })();
   </script>
 
 @endsection

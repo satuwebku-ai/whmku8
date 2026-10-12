@@ -49,7 +49,8 @@ class ClientMenu
         return [
             ['Dashboard', 'client.dashboard', 'client.dashboard*', ['fa' => 'fa-gauge', 'bi' => 'bi-speedometer2']],
 
-            // Toko -- route-nya ada di routes/store.php (prefix /store, domain client).
+            // Toko -- halaman menjelajah ada di domain publik (routes/store.php); setelah
+            // memilih, klien dibawa kembali ke keranjang di portal ini (routes/cart.php).
             ['Pesan Hosting', 'catalog.index', ['catalog.index', 'catalog.category', 'catalog.product'], ['fa' => 'fa-cart-plus', 'bi' => 'bi-cart-plus']],
             ['Pesan VPS', 'catalog.vps', 'catalog.vps', ['fa' => 'fa-cloud', 'bi' => 'bi-hdd-rack']],
             ['Cek & Daftar Domain', 'domain.search', ['domain.*', 'domains.transfer*', 'domain-premium.*'], ['fa' => 'fa-magnifying-glass', 'bi' => 'bi-search']],
@@ -64,6 +65,7 @@ class ClientMenu
             ['Invoice', 'client.invoices', 'client.invoices*', ['fa' => 'fa-file-invoice', 'bi' => 'bi-file-earmark-text']],
             ['Lisensi Saya', 'client.licenses', 'client.licenses*', ['fa' => 'fa-key', 'bi' => 'bi-key']],
             ['Saldo Saya', 'client.balance', 'client.balance*', ['fa' => 'fa-wallet', 'bi' => 'bi-wallet2']],
+            ['Tutorial', 'client.tutorials', 'client.tutorials*', ['fa' => 'fa-graduation-cap', 'bi' => 'bi-mortarboard']],
             ['Tiket Support', 'client.tickets', 'client.tickets*', ['fa' => 'fa-comments', 'bi' => 'bi-life-preserver']],
             ['Affiliate', 'client.affiliate.index', 'client.affiliate*', ['fa' => 'fa-share-nodes', 'bi' => 'bi-share']],
             ['Profil Saya', 'client.profile', 'client.profile*', ['fa' => 'fa-user', 'bi' => 'bi-person-gear']],

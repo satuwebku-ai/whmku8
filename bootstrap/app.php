@@ -36,6 +36,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Keasliannya diverifikasi lewat signature (Midtrans) atau callback
         // token (Xendit) di dalam service masing-masing.
         $middleware->validateCsrfTokens(except: [
+            // Serah-terima publik -> client (keranjang): dijaga RequirePortalOrigin.
+            ...\App\Http\Middleware\RequirePortalOrigin::HANDOFF_PATHS,
             'payment/webhook/*',
             // Sebagian gateway (mis. DANA via Duitku) mengembalikan browser klien dengan POST.
             'payment/finish',

@@ -11,11 +11,10 @@ return new class extends Migration
     {
         // "Jenis Produk" adalah data di database yang dikelola admin (bukan
         // daftar yang tertulis di kode). Tiap jenis punya "perilaku" (kind):
-        //   hosting = server cPanel/WHM, tagihan invoice, URL /hosting/...
-        //   vps     = server VM/cloud, tagihan deposit/jam, URL /vps/...
-        // Kolom product_groups.type (enum hosting|vps) tetap ada dan diisi
-        // otomatis dari kind jenis yang dipilih, sehingga logika yang sudah
-        // berjalan (server, tagihan, katalog) tidak berubah.
+        //   hosting = server cPanel/WHM, tagihan invoice
+        //   vps     = server VM/cloud, tagihan deposit/jam
+        // Segmen URL katalog diambil dari slug jenis; semua aturan server dan
+        // tagihan membaca kind lewat ProductType (tidak ada kolom type di grup).
         Schema::create('product_types', function (Blueprint $table) {
             $table->id();
             $table->string('slug', 60)->unique();
@@ -33,10 +32,6 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
-            // hosting = produk hosting biasa, vps = produk VPS/cloud --
-            // dipakai form Tambah Produk untuk menyesuaikan isian & menyaring
-            // pilihan server.
-            $table->enum('type', ['hosting', 'vps'])->default('hosting');
             $table->foreignId('product_type_id')->nullable()->constrained('product_types')->nullOnDelete();
             $table->text('description')->nullable();
             $table->string('icon')->nullable(); // nama ikon Font Awesome, mis. "fa-server"

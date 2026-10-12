@@ -63,6 +63,11 @@
   document.addEventListener('click', function (e) {
     const trigger = e.target.closest('[data-bs-toggle="collapse"]');
     if (!trigger) return;
+    // Klik pada tautan/tombol/field DI DALAM pemicu (mis. tombol "edit" di header
+    // kartu) adalah milik elemen itu, bukan pemicu collapse. Ditangani di sini --
+    // bukan dengan onclick inline -- karena CSP memblokir handler inline.
+    const inner = e.target.closest('a, button, input, select, textarea, label');
+    if (inner && inner !== trigger && trigger.contains(inner)) return;
     const sel = collapseSelector(trigger);
     const target = sel ? document.querySelector(sel) : null;
     if (!target) return;

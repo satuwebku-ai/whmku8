@@ -173,9 +173,15 @@ class DemoDataSeeder extends Seeder
             ['name' => 'Shared Hosting', 'description' => 'Cocok untuk website pribadi, blog, dan portofolio.', 'icon' => 'fa-server', 'is_active' => true, 'sort_order' => 1]
         );
 
+        // Perilaku VPS datang dari jenis produknya (product_types.kind), bukan dari
+        // nama kategori -- tanpa ini kategori "VPS" demo otomatis bertipe hosting.
         $vpsCategory = ProductGroup::firstOrCreate(
             ['slug' => 'vps'],
-            ['name' => 'VPS', 'description' => 'Sumber daya khusus untuk website dengan trafik tinggi.', 'icon' => 'fa-microchip', 'is_active' => true, 'sort_order' => 2]
+            [
+                'name' => 'VPS', 'description' => 'Sumber daya khusus untuk website dengan trafik tinggi.',
+                'icon' => 'fa-microchip', 'is_active' => true, 'sort_order' => 2,
+                'product_type_id' => \App\Models\ProductType::where('kind', \App\Models\ProductType::KIND_VPS)->orderBy('sort_order')->value('id'),
+            ]
         );
 
         $productSeed = [

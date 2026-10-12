@@ -19,7 +19,7 @@ class ProductGroup extends Model
      */
     protected $table = 'product_groups';
 
-    protected $fillable = ['name', 'slug', 'type', 'product_type_id', 'description', 'icon', 'is_active', 'sort_order'];
+    protected $fillable = ['name', 'slug', 'product_type_id', 'description', 'icon', 'is_active', 'sort_order'];
 
     /**
      * Jenis produk selalu ikut dimuat: segmen URL publik kategori ini
@@ -27,6 +27,29 @@ class ProductGroup extends Model
      * ditentukan di kode.
      */
     protected $with = ['productType'];
+
+    /** Apakah kategori ini berperilaku VPS/cloud? Dibaca dari jenis produknya (data admin). */
+    public function isVps(): bool
+    {
+        return (bool) $this->productType?->isVps();
+    }
+
+    /**
+     * Kategori dengan perilaku tertentu. Kategori tanpa jenis (data lama yang
+     * belum dipetakan) dianggap hosting.
+     */
+    public function scopeOfKind(Builder $query, string $kind): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->whereHas('productType', fn (Builder $t) => $t->where('kind', $kind))
+            ->when($kind === ProductType::KIND_HOSTING, fn (Builder $w) => $w->orWhereDoesntHave('productType')));
+    }
+
+    /** Kebalikan scopeOfKind() untuk satu perilaku (mis. "bukan VPS"). */
+    public function scopeNotOfKind(Builder $query, string $kind): Builder
+    {
+        return $query->whereDoesntHave('productType', fn (Builder $t) => $t->where('kind', $kind));
+    }
 
     public function publicUrl(): string
     {
@@ -51,9 +74,9 @@ class ProductGroup extends Model
     {
         static::saving(function (ProductGroup $category) {
             // Kategori yang dibuat tanpa memilih jenis (seeder, impor, dsb)
-            // otomatis memakai jenis pertama dengan perilaku yang sama.
+            // otomatis memakai jenis hosting pertama.
             if (blank($category->product_type_id)) {
-                $category->product_type_id = ProductType::where('kind', $category->type ?? 'hosting')
+                $category->product_type_id = ProductType::where('kind', ProductType::KIND_HOSTING)
                     ->orderBy('sort_order')->value('id');
             }
 

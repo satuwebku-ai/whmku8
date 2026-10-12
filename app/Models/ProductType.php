@@ -8,9 +8,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ProductType extends Model
 {
     /** Perilaku yang tersedia. Logika server/tagihan/URL hanya mengenal dua ini. */
+    /**
+     * "Perilaku" (kind) sebuah jenis produk -- SATU-SATUNYA tempat nilai ini
+     * didefinisikan. Seluruh kode lain bertanya lewat ProductGroup::isVps(),
+     * scope ofKind(), atau ProductType::isVps(), bukan membandingkan teks
+     * 'vps' sendiri. Jenis (nama, slug, ikon, warna) sepenuhnya data admin;
+     * kind hanya memilih aturan server dan tagihannya.
+     */
+    public const KIND_HOSTING = 'hosting';
+
+    public const KIND_VPS = 'vps';
+
     public const KINDS = [
-        'hosting' => 'Hosting — server cPanel/WHM, tagihan invoice, URL /hosting/...',
-        'vps'     => 'VPS / Cloud — server VM, tagihan deposit per jam, URL /vps/...',
+        self::KIND_HOSTING => 'Hosting — server cPanel/WHM, tagihan invoice',
+        self::KIND_VPS     => 'VPS / Cloud — server VM, tagihan deposit per jam',
     ];
 
     private const SECTIONS_CACHE_KEY = 'product_type_sections';
@@ -54,8 +65,19 @@ class ProductType extends Model
         return $this->hasMany(ProductGroup::class, 'product_type_id');
     }
 
+    public function isVps(): bool
+    {
+        return $this->kind === self::KIND_VPS;
+    }
+
     public function kindLabel(): string
     {
-        return $this->kind === 'vps' ? 'VPS / Cloud' : 'Hosting';
+        return $this->isVps() ? 'VPS / Cloud' : 'Hosting';
+    }
+
+    /** Perilaku jenis dengan slug ini (segmen URL katalog), atau null bila tidak ada. */
+    public static function kindOfSlug(string $slug): ?string
+    {
+        return static::where('slug', $slug)->value('kind');
     }
 }

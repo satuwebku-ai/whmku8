@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Site\CartController;
 use App\Http\Controllers\Site\CatalogController;
 use App\Http\Controllers\Site\DomainSearchController;
 use App\Http\Controllers\Site\LicenseController;
@@ -10,14 +9,16 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Store Routes (portal client)
+| Store: menjelajah (domain publik)
 |--------------------------------------------------------------------------
-| Katalog produk, penjualan domain/lisensi, dan keranjang. Toko berjalan di
-| domain client (member.*) di bawah prefix /store -- satu domain dengan login,
-| keranjang (session), dan checkout, sehingga alur order tidak lagi
-| berpindah domain. Prefix dipasang di routes/web.php; nama route
-| (catalog.*, cart.*, ...) tidak berubah. Tamu boleh menjelajah toko; login
-| baru diminta saat checkout. Domain publik hanya memuat konten CMS.
+| Etalase yang dilihat pengunjung SEBELUM memilih: katalog hosting/VPS,
+| halaman kategori & produk, lisensi, cek domain (biasa dan premium), serta
+| formulir transfer domain. Semua halaman ini hanya MEMBACA. Begitu
+| pengunjung memilih ("Pesan", "Tambah ke Keranjang", ...), form-nya
+| dikirim ke portal client -- lihat routes/cart.php.
+|
+| Dimuat hanya di domain publik. URL-nya sama seperti sebelumnya
+| (/hosting, /vps, /cek-domain, ...), jadi tautan lama dan SEO tidak berubah.
 */
 // Segmen {section} = slug jenis produk (tabel product_types), bukan daftar tetap.
 $catalogSections = ProductType::sectionPattern();
@@ -40,25 +41,11 @@ Route::controller(LicenseController::class)->prefix('lisensi')->name('license.')
 
 Route::controller(DomainSearchController::class)->group(function () {
     Route::get('cek-domain', 'searchBootstrap')->name('domain.search');
-    Route::post('cek-domain/keranjang', 'addToCart')->name('domain.add-to-cart');
     Route::get('transfer-domain', 'transferFormBootstrap')->name('domains.transfer');
-    Route::post('transfer-domain', 'submitTransfer')->name('domains.transfer.submit');
 });
 
 Route::controller(PremiumDomainController::class)->prefix('domain-premium')->name('domain-premium.')->group(function () {
     Route::get('/', 'indexBootstrap')->name('index');
+    // Pengecekan ketersediaan (AJAX, same-origin dengan halamannya).
     Route::post('cek', 'check')->name('check');
-});
-
-Route::controller(CartController::class)->prefix('keranjang')->name('cart.')->group(function () {
-    Route::get('/', 'indexBootstrap')->name('index');
-    Route::post('produk', 'addProduct')->name('add-product');
-    Route::post('lisensi', 'addAddon')->name('add-addon');
-    Route::post('domain-premium', 'addPremiumDomain')->name('add-premium-domain');
-    Route::post('domain-premium-custom', 'addCustomPremium')->name('add-custom-premium');
-    Route::post('update-siklus', 'updateProductCycle')->name('update-cycle');
-    Route::post('update-tahun', 'updateDomainYears')->name('update-years');
-    Route::post('privacy', 'toggleWhoisPrivacy')->name('toggle-privacy');
-    Route::post('hapus', 'remove')->name('remove');
-    Route::post('kosongkan', 'clear')->name('clear');
 });

@@ -153,6 +153,12 @@ Route::middleware('client')->group(function () {
         Route::post('bayar/{invoice}', 'payWithBalance')->name('balance.pay');
     });
 
+    // ── Tutorial: panduan dari Pusat Bantuan (KnowledgeBase) dibaca di dalam portal ──
+    Route::controller(\App\Http\Controllers\Client\TutorialController::class)->prefix('tutorial')->group(function () {
+        Route::get('/', 'index')->name('tutorials');
+        Route::get('{slug}', 'show')->name('tutorials.show');
+    });
+
     // ── Support Ticket ──
     Route::controller(TicketController::class)->group(function () {
         Route::get('tickets', 'tickets')->name('tickets');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Site;
 
+use App\Http\Controllers\Concerns\HandlesStoreHandoff;
 use App\Http\Controllers\Controller;
 use App\Models\DomainInterest;
 use App\Models\Tld;
@@ -13,6 +14,8 @@ use Illuminate\View\View;
 
 class DomainSearchController extends Controller
 {
+    use HandlesStoreHandoff;
+
     /**
      * Jumlah hasil yang ditampilkan dalam satu pencarian.
      *
@@ -206,30 +209,35 @@ class DomainSearchController extends Controller
     /**
      * Tambahkan domain yang tersedia ke keranjang.
      */
-    public function addToCart(Request $request, CartService $cart): RedirectResponse|\Illuminate\Http\JsonResponse
+    public function addToCart(Request $request, CartService $cart): RedirectResponse
     {
-        $data = $request->validate([
+        $data = $this->validateHandoff($request, [
             'domain_name' => ['required', 'string', 'max:255'],
             'tld_id'      => ['required', 'exists:tlds,id'],
             'years'       => ['nullable', 'integer', 'min:1', 'max:10'],
-        ]);
+        ], [], fn () => $this->searchBackUrl($request));
 
         $tld = Tld::findOrFail($data['tld_id']);
 
         $result = $cart->addDomain($data['domain_name'], $tld, (int) ($data['years'] ?? 1));
 
-        // Dipanggil lewat fetch() dari halaman Cek Domain supaya klien bisa
-        // terus menambah beberapa domain tanpa halaman reload tiap kali —
-        // form biasa (tanpa JS) tetap jalan normal lewat redirect di bawah.
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => $result['success'],
-                'message' => $result['message'],
-                'cart_count' => $cart->count(),
-            ]);
+        // Dari situs publik berhasil -> lanjut ke keranjang (alur "pilih -> keranjang");
+        // gagal -> kembali ke hasil pencarian beserta pesannya.
+        if ($this->fromPublicSite($request)) {
+            if (! $result['success']) {
+                return $this->handoffFailure($request, $result['message'], fn () => $this->searchBackUrl($request));
+            }
+
+            return redirect()->route('cart.index')->with('success', $result['message']);
         }
 
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /** Halaman cek domain publik (dengan kata kunci yang sama) tempat form dikirim. */
+    private function searchBackUrl(Request $request): string
+    {
+        return route('domain.search', array_filter(['domain' => trim((string) $request->input('domain_name'))]));
     }
 
     public function transferFormBootstrap(): View
@@ -245,12 +253,12 @@ class DomainSearchController extends Controller
 
     public function submitTransfer(Request $request, CartService $cart): RedirectResponse
     {
-        $data = $request->validate([
+        $data = $this->validateHandoff($request, [
             'domain_name' => ['required', 'string', 'max:255'],
             'auth_code'   => ['required', 'string', 'max:255'],
         ], [
             'auth_code.required' => 'Kode EPP/Auth Code wajib diisi — minta ke registrar lama Anda.',
-        ]);
+        ], fn () => route('domains.transfer'));
 
         $domainName = strtolower(trim($data['domain_name']));
 
@@ -263,13 +271,13 @@ class DomainSearchController extends Controller
             ->first(fn ($t) => str_ends_with($domainName, '.' . ltrim($t->extension, '.')));
 
         if (! $tld) {
-            return back()->with('error', 'Ekstensi domain tersebut belum kami dukung untuk transfer.')->withInput();
+            return $this->handoffFailure($request, 'Ekstensi domain tersebut belum kami dukung untuk transfer.', fn () => route('domains.transfer'));
         }
 
         $result = $cart->addDomain($domainName, $tld, 1, true, $data['auth_code']);
 
         return $result['success']
             ? redirect()->route('cart.index')->with('success', $result['message'])
-            : back()->with('error', $result['message'])->withInput();
+            : $this->handoffFailure($request, $result['message'], fn () => route('domains.transfer'));
     }
 }

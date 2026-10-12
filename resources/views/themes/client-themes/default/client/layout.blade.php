@@ -8,6 +8,10 @@
   $cartCount = app(CartService::class)->count();
 
   $menu = \App\Support\ClientMenu::items('fa', $cartCount);
+
+  // Mode store: halaman belanja (keranjang, checkout) memakai header store, bukan
+  // topbar + sidebar dashboard. Diaktifkan dengan @section('store-mode').
+  $isStore = $__env->hasSection('store-mode');
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -130,6 +134,9 @@
     </div>
   @endif
 
+  @if ($isStore)
+    @include('partials.store-topbar')
+  @else
   {{-- Topbar --}}
   <header id="clientTopbar" class="d-flex align-items-center px-3 position-sticky" style="top:{{ session('impersonator_admin_id') ? '41px' : '0' }};z-index:1030">
     <div class="container d-flex align-items-center justify-content-between" style="max-width:72rem">
@@ -182,9 +189,11 @@
       </div>
     </div>
   </header>
+  @endif
 
-  <div class="container d-flex gap-4 py-4" style="max-width:72rem">
+  <div class="container d-flex gap-4 py-4" style="max-width:{{ $isStore ? '80rem' : '72rem' }}">
 
+    @unless ($isStore)
     {{-- Sidebar --}}
     <aside class="d-none d-lg-block flex-shrink-0" style="width:232px">
       <div class="position-sticky" style="top:6rem">
@@ -209,9 +218,11 @@
         </nav>
       </div>
     </aside>
+    @endunless
 
     {{-- Konten --}}
     <main class="flex-grow-1 min-w-0">
+      @unless ($isStore)
       {{-- Nav mobile --}}
       <nav class="d-lg-none d-flex gap-2 mb-4 pb-1" style="overflow-x:auto">
         @foreach ($menu as $item)
@@ -222,6 +233,7 @@
           </a>
         @endforeach
       </nav>
+      @endunless
 
       <x-toast />
 

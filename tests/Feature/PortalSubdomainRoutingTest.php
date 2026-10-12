@@ -63,9 +63,28 @@ class PortalSubdomainRoutingTest extends TestCase
         $this->get('http://member.localhost/hosting')->assertNotFound();
     }
 
-    public function test_store_routes_live_on_the_client_host_under_the_store_prefix(): void
+    public function test_store_browsing_lives_on_the_public_host_with_unchanged_urls(): void
     {
-        foreach (['catalog.index' => '/store/hosting', 'catalog.vps' => '/store/vps', 'cart.index' => '/store/keranjang'] as $name => $path) {
+        foreach (['catalog.index' => '/hosting', 'catalog.vps' => '/vps', 'domain.search' => '/cek-domain',
+                  'domain-premium.index' => '/domain-premium', 'license.index' => '/lisensi'] as $name => $path) {
+            $url = parse_url(route($name));
+
+            $this->assertSame(config('portal_domains.public'), $url['host'], $name);
+            $this->assertSame($path, $url['path'], $name);
+        }
+    }
+
+    public function test_cart_and_ordering_live_on_the_client_host_under_the_store_prefix(): void
+    {
+        $paths = [
+            'cart.index' => '/store/keranjang',
+            'cart.add-product' => '/store/keranjang/produk',
+            'cart.add-addon' => '/store/keranjang/lisensi',
+            'domain.add-to-cart' => '/store/keranjang/domain',
+            'domains.transfer.submit' => '/store/keranjang/transfer-domain',
+        ];
+
+        foreach ($paths as $name => $path) {
             $url = parse_url(route($name));
 
             $this->assertSame(config('portal_domains.client'), $url['host'], $name);
@@ -73,38 +92,28 @@ class PortalSubdomainRoutingTest extends TestCase
         }
     }
 
-    public function test_store_is_browsable_by_guests_on_the_client_host(): void
+    public function test_store_browsing_is_open_to_guests_on_the_public_host(): void
     {
         $this->get(route('catalog.index'))->assertOk();
     }
 
-    public function test_store_vps_catalog_does_not_collide_with_the_clients_own_vps_pages(): void
+    public function test_the_clients_own_vps_pages_do_not_collide_with_the_public_vps_catalog(): void
     {
-        // /vps milik portal client (VPS Saya) tetap butuh login...
+        // /vps di portal client (VPS Saya) tetap butuh login...
         $this->get('http://member.localhost/vps')->assertRedirect(route('client.login'));
 
-        // ...sedangkan katalog VPS di /store/vps terbuka untuk tamu.
-        $this->assertNotSame(route('client.login'), $this->get(route('catalog.vps'))->headers->get('Location'));
+        // ...sedangkan /vps di domain publik adalah katalog VPS.
+        $this->get(route('catalog.vps'))->assertOk();
     }
 
-    public function test_store_is_not_served_on_the_public_or_admin_hosts(): void
+    public function test_cart_is_not_served_on_the_public_or_admin_hosts(): void
     {
-        $this->get('http://localhost/store/hosting')->assertNotFound();
-        $this->get('http://admin.localhost/store/hosting')->assertNotFound();
+        $this->get('http://localhost/store/keranjang')->assertNotFound();
+        $this->get('http://admin.localhost/store/keranjang')->assertNotFound();
     }
 
-    public function test_old_public_store_addresses_redirect_to_the_client_store(): void
+    public function test_old_public_cart_address_redirects_to_the_client_cart(): void
     {
-        $this->get('http://localhost/hosting')->assertStatus(301)->assertRedirect(route('catalog.index'));
-        $this->get('http://localhost/vps')->assertStatus(301)->assertRedirect(route('catalog.vps'));
         $this->get('http://localhost/keranjang')->assertStatus(301)->assertRedirect(route('cart.index'));
-        $this->get('http://localhost/lisensi')->assertStatus(301)->assertRedirect(route('license.index'));
-    }
-
-    public function test_old_public_store_redirects_keep_the_query_string(): void
-    {
-        $this->get('http://localhost/cek-domain?domain=contoh.com')
-            ->assertStatus(301)
-            ->assertRedirect(route('domain.search').'?domain=contoh.com');
     }
 }

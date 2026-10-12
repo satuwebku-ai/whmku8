@@ -28,17 +28,24 @@ Route::domain(config('portal_domains.admin'))->group(function () {
     Route::any('{path?}', static fn () => abort(404))->where('path', '.*');
 });
 
+// ShareCartCount: membagikan jumlah item keranjang ke domain publik (lencana header).
 Route::domain(config('portal_domains.client'))
+    ->middleware(\App\Http\Middleware\ShareCartCount::class)
     ->name('client.')
     ->group(base_path('routes/client.php'));
 
-Route::domain(config('portal_domains.client'))->group(function () {
+Route::domain(config('portal_domains.client'))->middleware(\App\Http\Middleware\ShareCartCount::class)->group(function () {
     Route::post('csp-report', \App\Http\Controllers\CspReportController::class)
         ->middleware('throttle:60,1');
 
-    // Toko (katalog, domain, lisensi, keranjang) di bawah /store. Harus
-    // didaftarkan sebelum catch-all 404 di bawah.
-    Route::prefix('store')->group(base_path('routes/store.php'));
+    // Keranjang & pemesanan di bawah /store (routes/cart.php). Prefix wajib:
+    // portal client sudah memakai /vps dan /vps/{vps}. Harus didaftarkan
+    // sebelum catch-all 404 di bawah.
+    // UseClientThemeForStore: untuk klien login, halaman keranjang memakai
+    // view dari tema Client (CSS-nya cocok dengan layout client).
+    Route::prefix('store')
+        ->middleware(\App\Http\Middleware\UseClientThemeForStore::class)
+        ->group(base_path('routes/cart.php'));
 
     Route::any('client/{path?}', function (Request $request, ?string $path = null) {
         $target = 'https://'.config('portal_domains.client').'/'.ltrim((string) $path, '/');
@@ -53,15 +60,17 @@ Route::domain(config('portal_domains.client'))->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Public website: CMS and public content
+| Public website: CMS, public content, and store browsing
 |--------------------------------------------------------------------------
-| The public host only serves content (home, blog, pages, announcements,
-| knowledge base, promo, chat widget, webhooks). The store lives on the
-| client host under /store (routes/store.php). Old public store addresses
-| redirect there so bookmarks, search results and external links keep working.
-| The CMS slug catch-all in routes/public.php must remain last.
+| The public host serves content (home, blog, pages, announcements, knowledge
+| base, promo, chat widget, webhooks) and the store's BROWSING pages: catalog,
+| licenses, and domain checks, regular and premium (routes/store.php). Once
+| a visitor chooses something, the forms post to the cart on the client host
+| (routes/cart.php, under /store). The CMS slug catch-all in routes/public.php
+| must remain last.
 */
-Route::domain(config('portal_domains.public'))->group(function () {
+// RestoreCartNotice: galat dari keranjang (domain client) dibawa kembali ke halaman publik asal.
+Route::domain(config('portal_domains.public'))->middleware(\App\Http\Middleware\RestoreCartNotice::class)->group(function () {
     Route::any('admin/{path?}', function (Request $request, ?string $path = null) {
         if ($path === 'login') {
             return redirect()->route('home');
@@ -88,28 +97,11 @@ Route::domain(config('portal_domains.public'))->group(function () {
         ->middleware('throttle:60,1')
         ->name('csp-report');
 
-    // Alamat toko lama di domain publik -> alamat baru di portal client.
-    // Hanya GET; query string ikut dibawa. Harus sebelum catch-all CMS.
-    $toStore = fn (string $route) => function (Request $request) use ($route) {
-        $url = route($route, $request->route()->parameters());
-        if ($request->getQueryString()) {
-            $url .= '?'.$request->getQueryString();
-        }
+    // Menjelajah toko ada di sini; keranjang pindah ke portal client.
+    require base_path('routes/store.php');
 
-        return redirect()->away($url, 301);
-    };
-    $sections = \App\Models\ProductType::sectionPattern();
-
-    Route::get('hosting', $toStore('catalog.index'));
-    Route::get('vps', $toStore('catalog.vps'));
-    Route::get('lisensi', $toStore('license.index'));
-    Route::get('lisensi/{slug}', $toStore('license.show'));
-    Route::get('cek-domain', $toStore('domain.search'));
-    Route::get('transfer-domain', $toStore('domains.transfer'));
-    Route::get('domain-premium', $toStore('domain-premium.index'));
-    Route::get('keranjang', $toStore('cart.index'));
-    Route::get('{section}/{category}', $toStore('catalog.category'))->where('section', $sections);
-    Route::get('{section}/{category}/{product}', $toStore('catalog.product'))->where('section', $sections);
+    // /keranjang lama (dulu di domain publik) -> keranjang di portal client.
+    Route::get('keranjang', fn () => redirect()->away(route('cart.index'), 301));
 
     require base_path('routes/public.php');
 });

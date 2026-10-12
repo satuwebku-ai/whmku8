@@ -2,15 +2,27 @@
 
 @php
   $seoTitle = 'Keranjang Belanja';
+
+  // Di portal client header belanja (judul + pintasan + langkah) disediakan
+  // pembungkus, jadi judul dan sidebar pintasan di bawah tidak dobel.
+  $inShell = \App\Support\ThemeRegistry::storeLayout() === 'client.layout';
+  $storeStep = 1;
+  $storeTitle = 'Keranjang Belanja';
+  $storeSubtitle = empty($items)
+    ? 'Keranjang Anda masih kosong. Pilih layanan di etalase untuk memulai.'
+    : count($items) . ' item siap dipesan. Periksa siklus penagihan, lalu lanjut ke checkout.';
 @endphp
 
 @section('store-content')
 
-  <h1 class="fw-bold text-dark mb-4" style="font-size:1.6rem">Keranjang Belanja</h1>
+  @unless ($inShell)
+    <h1 class="fw-bold text-dark mb-4" style="font-size:1.6rem">Keranjang Belanja</h1>
+  @endunless
 
   <div class="row g-4">
     {{-- Sidebar: kategori & aksi cepat — tetap tampil meski keranjang kosong,
          supaya pengunjung bisa lanjut menjelajah tanpa jalan buntu. --}}
+    @unless ($inShell)
     <div class="col-12 col-lg-4 d-flex flex-column gap-3">
       @if ($categories->isNotEmpty())
         <div class="card-public overflow-hidden">
@@ -41,8 +53,9 @@
         </div>
       </div>
     </div>
+    @endunless
 
-    <div class="col-12 col-lg-8">
+    <div class="col-12 {{ $inShell ? '' : 'col-lg-8' }}">
       @if (empty($items))
         <div class="card-public p-5 text-center">
           <i class="fa-solid fa-cart-shopping text-muted mb-3" style="font-size:2rem"></i>

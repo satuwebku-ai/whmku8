@@ -38,8 +38,8 @@
               <select name="product_category_id" id="categorySelect" class="form-select" style="{{ $selectStyle }}" required>
                 <option value="">Pilih kategori</option>
                 @foreach ($categories as $cat)
-                  <option value="{{ $cat->id }}" data-type="{{ $cat->type ?? 'hosting' }}" @selected(old('product_category_id', $product->product_category_id) == $cat->id)>
-                    {{ $cat->name }} — {{ ($cat->type ?? 'hosting') === 'vps' ? 'VPS' : 'Hosting' }}
+                  <option value="{{ $cat->id }}" data-type="{{ $cat->productType?->kind ?? 'hosting' }}" @selected(old('product_category_id', $product->product_category_id) == $cat->id)>
+                    {{ $cat->name }} — {{ $cat->productType?->name ?? 'Hosting' }}
                   </option>
                 @endforeach
               </select>

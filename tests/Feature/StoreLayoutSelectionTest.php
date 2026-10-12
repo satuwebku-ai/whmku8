@@ -8,31 +8,79 @@ use App\Support\ThemeRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Layout toko ditentukan DOMAIN: domain client (keranjang, checkout) = layout portal
+ * client dalam mode store, untuk klien login maupun tamu; domain publik (etalase)
+ * = layout publik.
+ */
 class StoreLayoutSelectionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guests_always_get_the_public_layout(): void
+    public function test_guests_get_the_store_layout_on_the_client_domain(): void
     {
-        $this->assertSame('public.layout', ThemeRegistry::storeLayout());
+        $this->get(route('cart.index'))
+            ->assertOk()
+            ->assertSee('store-topbar', false)
+            ->assertSee(route('client.login'), false)
+            ->assertSee(route('client.register'), false);
     }
 
-    public function test_logged_in_client_gets_the_client_layout_when_public_and_client_themes_match(): void
+    public function test_logged_in_clients_get_the_store_layout_with_dashboard_and_account(): void
     {
-        Setting::put('public_template', 'default');
-        Setting::put('client_template', 'default');
+        $client = Client::factory()->create();
+        $this->actingAs($client, 'client');
+
+        $this->get(route('cart.index'))
+            ->assertOk()
+            ->assertSee('store-topbar', false)
+            ->assertSee(route('client.dashboard'), false)
+            ->assertSee('alt="'.e($client->name).'"', false);
+    }
+
+    public function test_the_store_layout_replaces_the_dashboard_chrome(): void
+    {
         $this->actingAs(Client::factory()->create(), 'client');
 
-        $this->assertSame('client.layout', ThemeRegistry::storeLayout());
+        $this->get(route('cart.index'))
+            ->assertOk()
+            ->assertDontSee('id="clientTopbar"', false)
+            ->assertDontSee('Layanan Saya');
     }
 
-    public function test_logged_in_client_keeps_the_public_layout_when_themes_differ(): void
+    public function test_store_pages_on_the_public_domain_keep_the_public_layout(): void
+    {
+        $this->get(route('catalog.index'))
+            ->assertOk()
+            ->assertDontSee('store-topbar', false);
+    }
+
+    public function test_cart_views_come_from_the_client_theme_when_themes_differ(): void
     {
         Setting::put('public_template', 'namahost');
         Setting::put('client_template', 'default');
-        $this->actingAs(Client::factory()->create(), 'client');
 
-        $this->assertSame('public.layout', ThemeRegistry::storeLayout());
+        foreach ([false, true] as $loggedIn) {
+            if ($loggedIn) {
+                $this->actingAs(Client::factory()->create(), 'client');
+            }
+
+            $this->get(route('cart.index'))->assertOk();
+
+            $finder = app('view')->getFinder();
+            $this->assertStringContainsString('public-themes/default/', $finder->find('public.cart.index'));
+            $this->assertStringContainsString('public-themes/default/', $finder->find('public.store-layout'));
+        }
+    }
+
+    public function test_public_browsing_keeps_the_public_theme_when_themes_differ(): void
+    {
+        Setting::put('public_template', 'namahost');
+        Setting::put('client_template', 'default');
+
+        $this->get(route('catalog.index'))->assertOk();
+
+        $this->assertStringContainsString('public-themes/namahost/', app('view')->getFinder()->find('public.catalog.index'));
     }
 
     public function test_unknown_theme_keys_fall_back_to_default(): void

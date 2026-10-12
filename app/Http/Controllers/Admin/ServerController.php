@@ -55,7 +55,7 @@ class ServerController extends Controller
 
         $becomingCloud = ($data['panel'] === 'vps' || filled($data['vps_provider'] ?? null))
             && ! $server->isCloud();
-        if ($becomingCloud && ($server->groups()->exists() || $server->server_group_id !== null)) {
+        if ($becomingCloud && $server->groups()->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'panel' => 'Server ini masih menjadi anggota grup server. Keluarkan dari semua grup sebelum mengubahnya menjadi VPS/cloud.',
             ]);

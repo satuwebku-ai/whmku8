@@ -33,11 +33,9 @@ return new class extends Migration
             $table->unique(['server_group_id', 'server_id']);
         });
 
-        // Kolom lama servers.server_group_id tidak dipakai lagi (diganti tabel
-        // pivot di atas), tapi tetap ada supaya aman untuk rollback.
-        Schema::table('servers', function (Blueprint $table) {
-            $table->foreignId('server_group_id')->nullable()->after('id')->constrained()->nullOnDelete();
-        });
+        // Keanggotaan grup HANYA lewat tabel pivot di atas. Database lama masih
+        // punya kolom servers.server_group_id (tidak dipakai kode); isinya sudah
+        // disalin ke pivot oleh App\Support\SchemaRepair.
 
         Schema::table('products', function (Blueprint $table) {
             // Kalau diisi, server dipilih otomatis dari grup ini (menggantikan server_id tunggal).
@@ -49,10 +47,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('server_group_id');
-        });
-
-        Schema::table('servers', function (Blueprint $table) {
             $table->dropConstrainedForeignId('server_group_id');
         });
 
