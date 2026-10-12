@@ -6,6 +6,7 @@ use App\Models\CustomPremiumDomain;
 use App\Models\Registrar;
 use App\Models\Tld;
 use App\Models\TldPremium;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -103,6 +104,57 @@ class DomainSearchPremiumClassificationTest extends TestCase
             ->assertSee(route('domain.add-to-cart'), false)
             ->assertDontSee('PREMIUM KHUSUS')
             ->assertDontSee('Tambah Premium');
+    }
+
+    public function test_registered_domain_is_not_reclassified_as_premium_or_unknown(): void
+    {
+        $registrar = Registrar::create([
+            'name' => 'DNAMA Taken Domain Test',
+            'provider' => 'dnama',
+            'api_url' => 'https://api.dnama.test',
+            'api_username' => 'test-user',
+            'api_key' => 'test-key',
+            'is_active' => true,
+        ]);
+
+        $this->createTld('.com', 120000, $registrar->id);
+        TldPremium::create([
+            'registrar_id' => $registrar->id,
+            'extension' => '.com',
+            'is_premium' => true,
+            'label' => '.com Premium',
+            'is_generic' => true,
+            'is_active' => true,
+        ]);
+        CustomPremiumDomain::create([
+            'domain_name' => 'sandra.com',
+            'label' => 'sandra',
+            'extension' => '.com',
+            'characters' => 6,
+            'years' => 1,
+            'cost_price' => 5000000,
+            'sell_price' => 9000000,
+            'is_active' => true,
+        ]);
+
+        Cache::forget('rdap:sandra.com');
+        Http::fake([
+            'https://rdap.org/domain/*' => Http::response(['ldhName' => 'sandra.com'], 200),
+        ]);
+
+        $this->get(route('domain.search', [
+            'domain' => 'sandra',
+            'extensions' => ['.com'],
+        ]))
+            ->assertOk()
+            ->assertSee('sandra.com')
+            ->assertSee('Tidak Tersedia')
+            ->assertDontSee('PREMIUM KHUSUS')
+            ->assertDontSee('PREMIUM PER NAMA')
+            ->assertDontSee('CEK PREMIUM ULANG')
+            ->assertDontSee('Perlu Dicek Manual')
+            ->assertDontSee('Rp 9.000.000')
+            ->assertDontSee(route('domain.add-to-cart'), false);
     }
 
     public function test_generic_premium_from_admin_extension_list_is_not_sent_to_regular_cart(): void

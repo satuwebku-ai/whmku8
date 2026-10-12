@@ -162,6 +162,12 @@ class DomainSearchController extends Controller
             ->keyBy(fn (CustomPremiumDomain $domain) => strtolower($domain->domain_name));
 
         foreach ($customPremiums as $domainName => $premium) {
+            // Nama yang sudah terdaftar tetap tidak tersedia, meskipun
+            // sebelumnya pernah dimasukkan ke katalog premium custom.
+            if (($searchResults['results'][$domainName] ?? null) === false) {
+                continue;
+            }
+
             $price = (float) $premium->sell_price;
             $searchResults['premium'][$domainName] = [
                 'type' => 'custom',
@@ -206,6 +212,13 @@ class DomainSearchController extends Controller
 
         foreach ($domains as $domainName) {
             $domainKey = strtolower($domainName);
+
+            // RDAP sudah mengonfirmasi domain terdaftar. Jangan ubah status
+            // tersebut menjadi premium/cek ulang hanya karena pemeriksaan
+            // premium registrar tidak dijalankan untuk domain yang taken.
+            if (($searchResults['results'][$domainName] ?? null) === false) {
+                continue;
+            }
 
             // Domain yang sudah masuk katalog premium custom memakai harga
             // khususnya sendiri, bukan harga bertingkat keluarga .id.
