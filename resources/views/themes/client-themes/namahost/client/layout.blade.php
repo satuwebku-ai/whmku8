@@ -91,16 +91,39 @@
 
         <ul class="nav nav-pills flex-column gap-1">
           @foreach ($menu as $item)
-            @php $on = request()->routeIs($item['match']); @endphp
-            <li>
-              <a class="nav-link d-flex align-items-center {{ $on ? 'active' : '' }}" href="{{ route($item['route']) }}" @if ($on) aria-current="page" @endif>
-                <i class="bi {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}
-                {{-- Lencana keranjang selalu dirender (id=cartBadge) supaya JS halaman toko bisa memperbaruinya. --}}
-                @if (($item['badge'] ?? 0) > 0 || $item['route'] === 'cart.index')
-                  <span @if ($item['route'] === 'cart.index') id="cartBadge" @endif class="badge text-bg-warning ms-auto {{ ($item['badge'] ?? 0) > 0 ? '' : 'd-none' }}">{{ $item['badge'] ?? 0 }}</span>
-                @endif
-              </a>
-            </li>
+            @if (isset($item['children']))
+              {{-- Grup submenu (Store): terbuka otomatis bila salah satu anaknya aktif. --}}
+              @php $groupOn = request()->routeIs($item['match']); @endphp
+              <li>
+                <details class="nav-group" @if ($groupOn) open @endif>
+                  <summary class="nav-link d-flex align-items-center {{ $groupOn ? 'has-active' : '' }}">
+                    <i class="bi {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}
+                    <i class="bi bi-chevron-down nav-caret ms-auto"></i>
+                  </summary>
+                  <ul class="nav flex-column gap-1 nav-sub">
+                    @foreach ($item['children'] as $child)
+                      @php $on = request()->routeIs($child['match']); @endphp
+                      <li>
+                        <a class="nav-link d-flex align-items-center {{ $on ? 'active' : '' }}" href="{{ route($child['route']) }}" @if ($on) aria-current="page" @endif>
+                          <i class="bi {{ $child['icon'] }} me-2"></i>{{ $child['label'] }}
+                          {{-- Lencana keranjang selalu dirender (id=cartBadge) supaya JS halaman toko bisa memperbaruinya. --}}
+                          @if (($child['badge'] ?? 0) > 0 || $child['route'] === 'cart.index')
+                            <span @if ($child['route'] === 'cart.index') id="cartBadge" @endif class="badge text-bg-warning ms-auto {{ ($child['badge'] ?? 0) > 0 ? '' : 'd-none' }}">{{ $child['badge'] ?? 0 }}</span>
+                          @endif
+                        </a>
+                      </li>
+                    @endforeach
+                  </ul>
+                </details>
+              </li>
+            @else
+              @php $on = request()->routeIs($item['match']); @endphp
+              <li>
+                <a class="nav-link d-flex align-items-center {{ $on ? 'active' : '' }}" href="{{ route($item['route']) }}" @if ($on) aria-current="page" @endif>
+                  <i class="bi {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}
+                </a>
+              </li>
+            @endif
           @endforeach
           <li>
             <form method="POST" action="{{ route('client.logout') }}">

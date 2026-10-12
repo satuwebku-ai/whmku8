@@ -85,6 +85,12 @@
   .cnav:hover{ background:#f0efe9; color:#18181b; }
   .cnav.active{ background:var(--lumora-theme); color:#fff; }
   .cnav.active .cnav-icon{ background:rgba(255,255,255,.2); color:#fff; }
+  .cnav-group > summary{ list-style:none; cursor:pointer; }
+  .cnav-group > summary::-webkit-details-marker{ display:none; }
+  .cnav-group .cnav-caret{ margin-left:auto; font-size:10px; opacity:.6; transition:transform .2s; }
+  .cnav-group[open] .cnav-caret{ transform:rotate(180deg); }
+  .cnav-group > summary.has-active{ color:var(--lumora-theme); font-weight:700; }
+  .cnav-sub{ margin:.25rem 0 .25rem 1.1rem; padding-left:.5rem; border-left:2px solid rgba(100,116,139,.18); }
 
   /* ── Kartu umum area klien -- datar, hairline, terangkat halus ── */
   .dash-card{
@@ -196,10 +202,34 @@
 
         <nav class="d-flex flex-column gap-1">
           @foreach ($menu as $item)
-            <a href="{{ route($item['route']) }}" class="cnav {{ request()->routeIs($item['match']) ? 'active' : '' }}">
-              <span class="cnav-icon"><i class="fa-solid {{ $item['icon'] }}"></i></span>
-              {{ $item['label'] }}
-            </a>
+            @if (isset($item['children']))
+              {{-- Grup submenu (Store): terbuka otomatis bila salah satu anaknya aktif. --}}
+              @php $groupOn = request()->routeIs($item['match']); @endphp
+              <details class="cnav-group" @if ($groupOn) open @endif>
+                <summary class="cnav {{ $groupOn ? 'has-active' : '' }}">
+                  <span class="cnav-icon"><i class="fa-solid {{ $item['icon'] }}"></i></span>
+                  {{ $item['label'] }}
+                  <i class="fa-solid fa-chevron-down cnav-caret"></i>
+                </summary>
+                <div class="cnav-sub d-flex flex-column gap-1">
+                  @foreach ($item['children'] as $child)
+                    @php $on = request()->routeIs($child['match']); @endphp
+                    <a href="{{ route($child['route']) }}" class="cnav {{ $on ? 'active' : '' }}" @if ($on) aria-current="page" @endif>
+                      <span class="cnav-icon"><i class="fa-solid {{ $child['icon'] }}"></i></span>
+                      {{ $child['label'] }}
+                      @if (($child['badge'] ?? 0) > 0)
+                        <span class="ms-auto badge rounded-pill" style="background:var(--lumora-theme)">{{ $child['badge'] }}</span>
+                      @endif
+                    </a>
+                  @endforeach
+                </div>
+              </details>
+            @else
+              <a href="{{ route($item['route']) }}" class="cnav {{ request()->routeIs($item['match']) ? 'active' : '' }}">
+                <span class="cnav-icon"><i class="fa-solid {{ $item['icon'] }}"></i></span>
+                {{ $item['label'] }}
+              </a>
+            @endif
           @endforeach
         </nav>
       </div>
@@ -211,7 +241,7 @@
       @unless ($isStore)
       {{-- Nav mobile --}}
       <nav class="d-lg-none d-flex gap-2 mb-4 pb-1" style="overflow-x:auto">
-        @foreach ($menu as $item)
+        @foreach (\App\Support\ClientMenu::flat($menu) as $item)
           <a href="{{ route($item['route']) }}"
              class="px-3 py-2 rounded-pill text-decoration-none text-nowrap"
              style="font-size:12px;font-weight:600;{{ request()->routeIs($item['match']) ? 'background:var(--lumora-theme);color:#fff' : 'background:#fff;border:1px solid #ece9e2;color:#52525b' }}">

@@ -15,23 +15,28 @@ namespace App\Support;
 class ClientMenu
 {
     /**
+     * Item bisa punya 'children' (submenu). Saat ini hanya grup "Store".
+     *
      * @param  'fa'|'bi'  $iconSet
-     * @return list<array{label:string, route:string, match:string|array, icon:string, badge?:int}>
+     * @return list<array{label:string, route:string, match:string|array, icon:string, badge?:int, children?:list<array>}>
      */
     public static function items(string $iconSet = 'fa', int $cartCount = 0): array
     {
         $items = [];
 
-        foreach (self::definition() as [$label, $route, $match, $icons]) {
-            $item = [
-                'label' => $label,
-                'route' => $route,
-                'match' => $match,
-                'icon'  => $icons[$iconSet] ?? $icons['fa'],
-            ];
+        foreach (self::definition() as $row) {
+            [$label, $route, $match, $icons] = $row;
+            $children = $row[4] ?? null;
 
-            if ($route === 'cart.index') {
-                $item['badge'] = $cartCount;
+            $item = self::build($label, $route, $match, $icons, $iconSet, $cartCount);
+
+            if ($children !== null) {
+                $item['children'] = array_map(
+                    fn (array $c) => self::build($c[0], $c[1], $c[2], $c[3], $iconSet, $cartCount),
+                    $children
+                );
+                // Grup aktif bila salah satu submenunya aktif.
+                $item['match'] = array_merge(...array_map(fn (array $c) => (array) $c[2], $children));
             }
 
             $items[] = $item;
@@ -41,7 +46,45 @@ class ClientMenu
     }
 
     /**
-     * [label, nama route, pola route aktif, ['fa' => ikon FA, 'bi' => ikon BI]]
+     * Daftar datar (submenu dibentangkan, induk grup dilewati) -- untuk nav
+     * mobile yang berupa deretan pil tanpa dropdown.
+     *
+     * @param  list<array>  $items
+     * @return list<array>
+     */
+    public static function flat(array $items): array
+    {
+        $out = [];
+
+        foreach ($items as $item) {
+            if (isset($item['children'])) {
+                array_push($out, ...$item['children']);
+            } else {
+                $out[] = $item;
+            }
+        }
+
+        return $out;
+    }
+
+    private static function build(string $label, string $route, string|array $match, array $icons, string $iconSet, int $cartCount): array
+    {
+        $item = [
+            'label' => $label,
+            'route' => $route,
+            'match' => $match,
+            'icon'  => $icons[$iconSet] ?? $icons['fa'],
+        ];
+
+        if ($route === 'cart.index') {
+            $item['badge'] = $cartCount;
+        }
+
+        return $item;
+    }
+
+    /**
+     * [label, nama route, pola route aktif, ['fa' => ikon FA, 'bi' => ikon BI], (opsional) submenu]
      * Urutan: ringkasan, toko, lalu layanan & akun klien.
      */
     private static function definition(): array
@@ -49,13 +92,16 @@ class ClientMenu
         return [
             ['Dashboard', 'client.dashboard', 'client.dashboard*', ['fa' => 'fa-gauge', 'bi' => 'bi-speedometer2']],
 
-            // Toko -- halaman menjelajah ada di domain publik (routes/store.php); setelah
-            // memilih, klien dibawa kembali ke keranjang di portal ini (routes/cart.php).
-            ['Pesan Hosting', 'catalog.index', ['catalog.index', 'catalog.category', 'catalog.product'], ['fa' => 'fa-cart-plus', 'bi' => 'bi-cart-plus']],
-            ['Pesan VPS', 'catalog.vps', 'catalog.vps', ['fa' => 'fa-cloud', 'bi' => 'bi-hdd-rack']],
-            ['Cek & Daftar Domain', 'domain.search', ['domain.*', 'domains.transfer*', 'domain-premium.*'], ['fa' => 'fa-magnifying-glass', 'bi' => 'bi-search']],
-            ['Beli Lisensi', 'license.index', 'license.*', ['fa' => 'fa-key', 'bi' => 'bi-key']],
-            ['Keranjang', 'cart.index', 'cart.*', ['fa' => 'fa-cart-shopping', 'bi' => 'bi-cart3']],
+            // Store -- satu grup berisi semua menu jualan + keranjang. Halaman
+            // menjelajah ada di domain publik (routes/store.php); setelah memilih,
+            // klien dibawa kembali ke keranjang di portal ini (/store/keranjang).
+            ['Store', 'catalog.index', [], ['fa' => 'fa-store', 'bi' => 'bi-shop'], [
+                ['Pesan Hosting', 'catalog.index', ['catalog.index', 'catalog.category', 'catalog.product'], ['fa' => 'fa-cart-plus', 'bi' => 'bi-cart-plus']],
+                ['Pesan VPS', 'catalog.vps', 'catalog.vps', ['fa' => 'fa-cloud', 'bi' => 'bi-hdd-rack']],
+                ['Cek & Daftar Domain', 'domain.search', ['domain.*', 'domains.transfer*', 'domain-premium.*'], ['fa' => 'fa-magnifying-glass', 'bi' => 'bi-search']],
+                ['Beli Lisensi', 'license.index', 'license.*', ['fa' => 'fa-key', 'bi' => 'bi-key']],
+                ['Keranjang', 'cart.index', 'cart.*', ['fa' => 'fa-cart-shopping', 'bi' => 'bi-cart3']],
+            ]],
 
             // Layanan & akun klien.
             ['Layanan Saya', 'client.services', 'client.services*', ['fa' => 'fa-server', 'bi' => 'bi-server']],
