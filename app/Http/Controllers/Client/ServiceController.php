@@ -421,6 +421,7 @@ class ServiceController extends Controller
                 'description' => ($isRenewal ? 'Perpanjangan ID Protection' : 'ID Protection')
                     . " — {$current->domain_name} (1 tahun)",
                 'amount' => $price,
+                ...InvoiceItem::serviceRef($current, InvoiceItem::TYPE_PRIVACY),
             ]);
 
             $current->update(['privacy_invoice_id' => $invoice->id]);

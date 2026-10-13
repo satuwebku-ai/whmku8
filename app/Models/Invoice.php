@@ -217,36 +217,61 @@ class Invoice extends Model
     }
 
     /**
-     * Layanan yang ditagih invoice ini (domain / hosting), diturunkan dari
-     * tautan yang dibuat sistem — BUKAN dipilih manual admin.
+     * Layanan yang ditagih invoice ini (domain / hosting).
      *
-     * Invoice perpanjangan dan ID Protection tidak punya order baru, jadi
-     * kolom order terasa "kosong". Layanan inilah yang sebenarnya terkait.
+     * Sumber utama: rujukan di baris invoice (invoice_items.service_type /
+     * service_id) — permanen, jadi invoice yang sudah lunas pun tetap tahu
+     * layanannya. Cadangan untuk data lama yang belum terisi: tautan
+     * sementara di layanan (renewal_invoice_id, privacy_invoice_id, dst).
      *
      * @return \Illuminate\Support\Collection<int, array{label: string, kind: string, name: string, route: string, model: \Illuminate\Database\Eloquent\Model}>
      */
     public function relatedServices(): \Illuminate\Support\Collection
     {
         $rows = collect();
+        $seen = [];
 
-        Domain::where('renewal_invoice_id', $this->id)->get()->each(function (Domain $d) use ($rows) {
-            $rows->push(['label' => 'Perpanjangan domain', 'kind' => 'domain', 'name' => $d->domain_name,
-                'route' => route('admin.domains.details', $d), 'model' => $d]);
-        });
+        $push = function (string $label, string $kind, \Illuminate\Database\Eloquent\Model $model) use ($rows, &$seen): void {
+            $key = $kind . ':' . $model->getKey() . ':' . $label;
+            if (isset($seen[$key])) {
+                return;
+            }
+            $seen[$key] = true;
 
-        Domain::where('privacy_invoice_id', $this->id)->get()->each(function (Domain $d) use ($rows) {
-            $rows->push(['label' => 'ID Protection', 'kind' => 'domain', 'name' => $d->domain_name,
-                'route' => route('admin.domains.details', $d), 'model' => $d]);
-        });
+            $rows->push([
+                'label' => $label,
+                'kind' => $kind,
+                'name' => $kind === 'domain' ? $model->domain_name : $model->domain,
+                'route' => $kind === 'domain'
+                    ? route('admin.domains.details', $model)
+                    : route('admin.hosting-accounts.details', $model),
+                'model' => $model,
+            ]);
+        };
+
+        if (InvoiceItem::supportsServiceRef()) {
+            foreach ($this->items()->whereNotNull('service_type')->get() as $item) {
+                if ($service = $item->service()) {
+                    $push($item->serviceLabel(), $item->service_type, $service);
+                }
+            }
+        }
+
+        // Cadangan untuk invoice lama yang belum di-backfill.
+        Domain::where('renewal_invoice_id', $this->id)->get()
+            ->each(fn (Domain $d) => $push('Perpanjangan domain', 'domain', $d));
+
+        Domain::where('privacy_invoice_id', $this->id)->get()
+            ->each(fn (Domain $d) => $push('ID Protection', 'domain', $d));
 
         HostingAccount::where('renewal_invoice_id', $this->id)
             ->orWhere('pending_upgrade_invoice_id', $this->id)
             ->get()
-            ->each(function (HostingAccount $h) use ($rows) {
-                $rows->push(['label' => (int) $h->renewal_invoice_id === (int) $this->id ? 'Perpanjangan hosting' : 'Upgrade hosting',
-                    'kind' => 'hosting', 'name' => $h->domain,
-                    'route' => route('admin.hosting-accounts.details', $h), 'model' => $h]);
-            });
+            ->each(fn (HostingAccount $h) => $push(
+                (int) $h->renewal_invoice_id === (int) $this->id ? 'Perpanjangan hosting' : 'Upgrade hosting',
+                'hosting',
+                $h,
+            ));
 
         return $rows;
     }

@@ -69,6 +69,7 @@ class CheckSetup extends Command
         'hosting_accounts' => ['renewal_invoice_id', 'product_id', 'pending_upgrade_product_id', 'pending_upgrade_invoice_id', 'pending_upgrade_price', 'client_details', 'credentials_sent_at', 'credentials_email_failed_at'],
         'domains' => ['renewal_invoice_id', 'is_transfer', 'transfer_auth_code', 'eligibility_criteria', 'eligibility_extra', 'documents_verified_at', 'privacy_invoice_id', 'privacy_expires_at'],
         'invoices' => ['is_topup'],
+        'invoice_items' => ['service_type', 'service_id', 'item_type'],
         'orders'   => ['internal_notes'],
         'domains'  => ['internal_notes'],
     ];

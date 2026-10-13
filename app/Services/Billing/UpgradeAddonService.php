@@ -81,6 +81,7 @@ class UpgradeAddonService
                 'invoice_id' => $invoice->id,
                 'description' => "Upgrade {$hosting->domain}: {$hosting->product?->name} → {$eligible->name} (prorata sisa siklus)",
                 'amount' => $amount,
+                ...InvoiceItem::serviceRef($hosting, InvoiceItem::TYPE_UPGRADE),
             ]);
 
             $hosting->update([
@@ -155,6 +156,7 @@ class UpgradeAddonService
                 'invoice_id' => $invoice->id,
                 'description' => "Addon {$catalogAddon->name} — {$hosting->domain} (prorata sisa siklus)",
                 'amount' => $amount,
+                ...InvoiceItem::serviceRef($hosting, InvoiceItem::TYPE_ADDON),
             ]);
 
             HostingAccountAddon::create([
