@@ -68,6 +68,8 @@ class NavMenu extends Model
         'license.index' => 'Lisensi',
         'promo.index' => 'Promo & Diskon',
         'announcements.index' => 'Pengumuman',
+        'blog.index' => 'Blog',
+        'knowledge-base.index' => 'Pusat Bantuan',
     ];
 
     /**
@@ -86,6 +88,8 @@ class NavMenu extends Model
         'license.index' => ['bi-key', 'Lisensi software resmi', 'fa-key'],
         'promo.index' => ['bi-tag', 'Kode promo dan diskon terbaru', 'fa-tags'],
         'announcements.index' => ['bi-megaphone', 'Kabar dan info terbaru', 'fa-bullhorn'],
+        'blog.index' => ['bi-journal-text', 'Artikel dan tips terbaru', 'fa-newspaper'],
+        'knowledge-base.index' => ['bi-life-preserver', 'Panduan dan jawaban umum', 'fa-circle-question'],
     ];
 
     /**

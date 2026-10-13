@@ -522,6 +522,15 @@ Route::middleware(['admin', 'check.status'])->group(function () {
             Route::post('{article}/status', 'toggleStatus')->name('status');
         });
 
+        // ── CMS: Halaman Depan (susunan section beranda) ──
+        // Dulu di grup Pengaturan (module:system) sehingga admin Marketing
+        // yang mengelola banner & konten tidak bisa mengatur beranda.
+        // Nama route tetap admin.settings.homepage supaya semua tautan lama aman.
+        Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
+            Route::get('homepage', 'homepage')->name('homepage');
+            Route::post('homepage', 'updateHomepage')->name('homepage.update');
+        });
+
         // ── CMS: Banner Promo ──
         Route::controller(\App\Http\Controllers\Admin\PromoBannerController::class)->prefix('promo-banners')->name('promo-banners.')->group(function () {
             Route::get('/', 'indexBootstrap')->name('index');
@@ -577,8 +586,6 @@ Route::middleware(['admin', 'check.status'])->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('general', 'generalBootstrap')->name('general');
             Route::post('general', 'updateGeneral')->name('general.update');
-            Route::get('homepage', 'homepage')->name('homepage');
-            Route::post('homepage', 'updateHomepage')->name('homepage.update');
 
             // Persyaratan berkas domain (menggantikan daftar hardcoded
             // di DomainDocument::requirements()).

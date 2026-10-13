@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Pengaturan Halaman Depan')
 @section('content')
-  @include('admin.settings._nav')
+  @include('admin.pages._nav')
 
   @php use App\Models\Setting; @endphp
 
