@@ -6,6 +6,7 @@ use App\Exceptions\Payment\PaymentNotAllowedException;
 use App\Models\Domain;
 use App\Models\DomainDocument;
 use App\Models\Invoice;
+use App\Models\Tld;
 
 /**
  * Satu gerbang server-side untuk seluruh jalur pembayaran.
@@ -48,6 +49,18 @@ class PaymentEligibilityService
             return ['allowed' => false, 'message' => 'Invoice ini sudah direfund dan tidak bisa dibayar ulang.', 'domain' => null];
         }
 
+        // Aturan bisnis yang TIDAK boleh bisa dilewati lewat invoice lama
+        // (data pemulihan/seeder, invoice yang dibuat sebelum aturan ada):
+        // ID Protection untuk domain .id (PANDI) dan perpanjangan domain
+        // di luar jendela H-30.
+        if ($violation = $this->ruleViolation($invoice)) {
+            return [
+                'allowed' => false,
+                'message' => $violation['message'],
+                'domain' => $violation['domain'],
+            ];
+        }
+
         if ($domain = $this->documentBlocker($invoice)) {
             return [
                 'allowed' => false,
@@ -70,6 +83,54 @@ class PaymentEligibilityService
                 $result['domain']?->id,
             );
         }
+    }
+
+    /**
+     * Invoice yang isinya melanggar aturan produk. Dipakai oleh check()
+     * (jadi otomatis berlaku untuk bayar klien, saldo, webhook gateway,
+     * dan "tandai lunas" admin) dan oleh perintah
+     * lumora:cancel-invalid-invoices untuk membersihkan data lama.
+     *
+     * @return array{code: string, message: string, domain: ?Domain}|null
+     */
+    public function ruleViolation(Invoice $invoice): ?array
+    {
+        // 1) ID Protection / WHOIS Privacy dilarang PANDI untuk keluarga .id.
+        $privacyDomain = Domain::with('tld')->where('privacy_invoice_id', $invoice->id)->first();
+        if ($privacyDomain && ! $privacyDomain->supportsPrivacy()) {
+            return [
+                'code' => 'privacy_not_allowed',
+                'message' => "ID Protection tidak tersedia untuk {$privacyDomain->domain_name} (domain .id dilarang PANDI). Invoice ini tidak dapat dibayar.",
+                'domain' => $privacyDomain,
+            ];
+        }
+
+        // Jaring pengaman untuk invoice yang tautan privacy_invoice_id-nya
+        // sudah kosong: cek dari deskripsi item ("ID Protection — nama.domain").
+        foreach ($invoice->items()->pluck('description') as $description) {
+            if (preg_match('/ID Protection\s+[\x{2014}-]\s+([a-z0-9.-]+)/iu', (string) $description, $m)
+                && Tld::isIdFamily($m[1])) {
+                return [
+                    'code' => 'privacy_not_allowed',
+                    'message' => "ID Protection tidak tersedia untuk {$m[1]} (domain .id dilarang PANDI). Invoice ini tidak dapat dibayar.",
+                    'domain' => Domain::where('domain_name', $m[1])->first(),
+                ];
+            }
+        }
+
+        // 2) Perpanjangan domain hanya dibuka maksimal H-30 sebelum expiry.
+        $renewalDomain = Domain::where('renewal_invoice_id', $invoice->id)->first();
+        if ($renewalDomain && ! $renewalDomain->isWithinRenewalWindow()) {
+            $opens = $renewalDomain->expiry_date?->copy()->subDays(30)->format('d M Y');
+
+            return [
+                'code' => 'renewal_too_early',
+                'message' => "Perpanjangan {$renewalDomain->domain_name} baru dapat dibayar mulai {$opens} (H-30 sebelum kedaluwarsa).",
+                'domain' => $renewalDomain,
+            ];
+        }
+
+        return null;
     }
 
     public function documentBlocker(Invoice $invoice): ?Domain

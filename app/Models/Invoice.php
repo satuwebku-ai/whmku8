@@ -216,6 +216,53 @@ class Invoice extends Model
         return app(\App\Services\Payment\PaymentEligibilityService::class)->documentBlocker($this);
     }
 
+    /**
+     * Layanan yang ditagih invoice ini (domain / hosting), diturunkan dari
+     * tautan yang dibuat sistem — BUKAN dipilih manual admin.
+     *
+     * Invoice perpanjangan dan ID Protection tidak punya order baru, jadi
+     * kolom order terasa "kosong". Layanan inilah yang sebenarnya terkait.
+     *
+     * @return \Illuminate\Support\Collection<int, array{label: string, kind: string, name: string, route: string, model: \Illuminate\Database\Eloquent\Model}>
+     */
+    public function relatedServices(): \Illuminate\Support\Collection
+    {
+        $rows = collect();
+
+        Domain::where('renewal_invoice_id', $this->id)->get()->each(function (Domain $d) use ($rows) {
+            $rows->push(['label' => 'Perpanjangan domain', 'kind' => 'domain', 'name' => $d->domain_name,
+                'route' => route('admin.domains.details', $d), 'model' => $d]);
+        });
+
+        Domain::where('privacy_invoice_id', $this->id)->get()->each(function (Domain $d) use ($rows) {
+            $rows->push(['label' => 'ID Protection', 'kind' => 'domain', 'name' => $d->domain_name,
+                'route' => route('admin.domains.details', $d), 'model' => $d]);
+        });
+
+        HostingAccount::where('renewal_invoice_id', $this->id)
+            ->orWhere('pending_upgrade_invoice_id', $this->id)
+            ->get()
+            ->each(function (HostingAccount $h) use ($rows) {
+                $rows->push(['label' => (int) $h->renewal_invoice_id === (int) $this->id ? 'Perpanjangan hosting' : 'Upgrade hosting',
+                    'kind' => 'hosting', 'name' => $h->domain,
+                    'route' => route('admin.hosting-accounts.details', $h), 'model' => $h]);
+            });
+
+        return $rows;
+    }
+
+    /**
+     * Invoice yang dibuat sistem (checkout, renewal, privacy, upgrade) tidak
+     * boleh diubah tautan order/nominalnya lewat form edit admin. Order pada
+     * invoice menentukan provisioning & status order saat dibayar.
+     */
+    public function isSystemGenerated(): bool
+    {
+        return $this->order_id !== null
+            || $this->items()->exists()
+            || $this->relatedServices()->isNotEmpty();
+    }
+
     public function getIsOverdueAttribute(): bool
     {
         return $this->status === 'unpaid' && $this->due_date?->isPast();

@@ -9,8 +9,10 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Pulihkan order, invoice, rincian invoice, dan pembayaran dari snapshot
- * SQL Satucloud tanggal 4 Oktober 2026.
+ * Pulihkan order, invoice, rincian invoice, dan pembayaran milik domain
+ * appdataku.my.id dari snapshot SQL Satucloud tanggal 4 Oktober 2026.
+ *
+ * Data domain lain (webku22.com, dataku22.ac.id) sengaja tidak diikutkan.
  *
  * Jalankan manual; seeder ini sengaja tidak dipanggil dari DatabaseSeeder.
  * Aman dijalankan ulang: data yang sudah ada tidak ditimpa, soft-delete
@@ -71,8 +73,7 @@ class RestoreLegacyBillingSeeder extends Seeder
     private function resolveClientIds(): array
     {
         $legacyClients = [
-            14 => ['appdataku.my.id', 'dataku22.ac.id'],
-            17 => ['webku22.com'],
+            14 => ['appdataku.my.id'],
         ];
         $resolved = [];
 
@@ -147,22 +148,6 @@ class RestoreLegacyBillingSeeder extends Seeder
                 'legacy_status' => 'active',
                 'created_at' => '2026-08-18 02:13:58', 'updated_at' => '2026-08-18 07:44:07',
             ],
-            [
-                'id' => 7, 'order_number' => 'ORD-1003', 'client_id' => 17,
-                'product_id' => null, 'hosting_account_id' => null,
-                'product_name' => 'Registrasi Domain webku22.com',
-                'order_type' => 'domain', 'amount' => '179000.00',
-                'legacy_status' => 'pending',
-                'created_at' => '2026-08-21 09:13:47', 'updated_at' => '2026-08-21 09:13:47',
-            ],
-            [
-                'id' => 9, 'order_number' => 'ORD-1004', 'client_id' => 14,
-                'product_id' => null, 'hosting_account_id' => null,
-                'product_name' => 'Registrasi Domain dataku22.ac.id',
-                'order_type' => 'domain', 'amount' => '79000.00',
-                'legacy_status' => 'pending',
-                'created_at' => '2026-08-30 07:25:40', 'updated_at' => '2026-08-30 07:25:40',
-            ],
         ];
 
         foreach ($rows as $row) {
@@ -197,17 +182,11 @@ class RestoreLegacyBillingSeeder extends Seeder
                 'created_at' => '2026-08-15 01:47:36', 'updated_at' => '2026-08-15 01:53:50',
             ],
             [
-                'id' => 6, 'invoice_number' => 'INV-2026-0002', 'client_id' => 14, 'legacy_order_id' => null,
-                'amount' => '50000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '50000.00',
-                'status' => 'unpaid', 'is_topup' => 1, 'issue_date' => '2026-08-18', 'due_date' => '2026-08-21',
-                'paid_at' => null, 'payment_method' => null, 'notes' => null,
-                'created_at' => '2026-08-17 20:49:17', 'updated_at' => '2026-08-17 20:49:17',
-            ],
-            [
                 'id' => 7, 'invoice_number' => 'INV-2026-0003', 'client_id' => 14, 'legacy_order_id' => null,
                 'amount' => '85000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '85000.00',
-                'status' => 'unpaid', 'is_topup' => 0, 'issue_date' => '2026-08-18', 'due_date' => '2026-08-21',
-                'paid_at' => null, 'payment_method' => null, 'notes' => null,
+                'status' => 'cancelled', 'is_topup' => 0, 'issue_date' => '2026-08-18', 'due_date' => '2026-08-21',
+                'paid_at' => null, 'payment_method' => null,
+                'notes' => 'Dibatalkan otomatis: ID Protection tidak tersedia untuk domain .id (aturan PANDI).',
                 'created_at' => '2026-08-18 02:01:47', 'updated_at' => '2026-08-18 02:01:47',
             ],
             [
@@ -216,13 +195,6 @@ class RestoreLegacyBillingSeeder extends Seeder
                 'status' => 'paid', 'is_topup' => 0, 'issue_date' => '2026-08-18', 'due_date' => '2026-08-21',
                 'paid_at' => '2026-08-18', 'payment_method' => 'DUITKU', 'notes' => null,
                 'created_at' => '2026-08-18 02:13:53', 'updated_at' => '2026-08-18 02:16:47',
-            ],
-            [
-                'id' => 9, 'invoice_number' => 'INV-2026-0005', 'client_id' => 14, 'legacy_order_id' => null,
-                'amount' => '10000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '10000.00',
-                'status' => 'paid', 'is_topup' => 1, 'issue_date' => '2026-08-19', 'due_date' => '2026-08-22',
-                'paid_at' => '2026-08-19', 'payment_method' => 'DUITKU', 'notes' => null,
-                'created_at' => '2026-08-18 21:25:19', 'updated_at' => '2026-08-18 21:26:58',
             ],
             [
                 'id' => 10, 'invoice_number' => 'INV-2026-0006', 'client_id' => 14, 'legacy_order_id' => null,
@@ -241,23 +213,10 @@ class RestoreLegacyBillingSeeder extends Seeder
             [
                 'id' => 13, 'invoice_number' => 'INV-2026-0008', 'client_id' => 14, 'legacy_order_id' => null,
                 'amount' => '40000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '40000.00',
-                'status' => 'unpaid', 'is_topup' => 0, 'issue_date' => '2026-08-21', 'due_date' => '2027-08-15',
-                'paid_at' => null, 'payment_method' => null, 'notes' => null,
+                'status' => 'cancelled', 'is_topup' => 0, 'issue_date' => '2026-08-21', 'due_date' => '2027-08-15',
+                'paid_at' => null, 'payment_method' => null,
+                'notes' => 'Dibatalkan otomatis: perpanjangan domain terbit di luar jendela H-30. Invoice baru dibuat otomatis saat masuk H-30.',
                 'created_at' => '2026-08-21 02:35:28', 'updated_at' => '2026-08-21 02:35:28',
-            ],
-            [
-                'id' => 14, 'invoice_number' => 'INV-2026-0009', 'client_id' => 17, 'legacy_order_id' => 7,
-                'amount' => '179000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '179000.00',
-                'status' => 'unpaid', 'is_topup' => 0, 'issue_date' => '2026-08-21', 'due_date' => '2026-08-24',
-                'paid_at' => null, 'payment_method' => null, 'notes' => null,
-                'created_at' => '2026-08-21 09:13:39', 'updated_at' => '2026-08-21 09:13:47',
-            ],
-            [
-                'id' => 18, 'invoice_number' => 'INV-2026-0010', 'client_id' => 14, 'legacy_order_id' => 9,
-                'amount' => '79000.00', 'tax' => '0.00', 'discount' => '0.00', 'total' => '79000.00',
-                'status' => 'unpaid', 'is_topup' => 0, 'issue_date' => '2026-08-30', 'due_date' => '2026-09-02',
-                'paid_at' => null, 'payment_method' => null, 'notes' => null,
-                'created_at' => '2026-08-30 07:25:40', 'updated_at' => '2026-08-30 07:25:40',
             ],
         ];
 
@@ -290,15 +249,11 @@ class RestoreLegacyBillingSeeder extends Seeder
 
         $rows = [
             [5, 5, 5, 'Registrasi Domain appdataku.my.id (1 tahun)', '40000.00', '2026-08-15 01:47:44'],
-            [6, 6, null, 'Isi Ulang Saldo', '50000.00', '2026-08-17 20:49:22'],
             [7, 7, null, 'ID Protection — appdataku.my.id (1 tahun)', '85000.00', '2026-08-18 02:01:53'],
             [8, 8, 6, 'Starter Host 1000 (Bulanan)', '10000.00', '2026-08-18 02:13:58'],
-            [9, 9, null, 'Isi Ulang Saldo', '10000.00', '2026-08-18 21:25:23'],
             [10, 10, null, 'Upgrade appdataku.my.id: Starter Host 1000 → Starter Host 5000 (prorata sisa siklus)', '2000.00', '2026-08-18 21:28:53'],
             [11, 12, null, 'Perpanjangan Hosting — appdataku.my.id (satuclo1_Starter Host 5000, bulanan)', '12000.00', '2026-08-21 02:23:18'],
             [12, 13, null, 'Perpanjangan Domain — appdataku.my.id (1 tahun)', '40000.00', '2026-08-21 02:35:35'],
-            [13, 14, 7, 'Registrasi Domain webku22.com (1 tahun)', '179000.00', '2026-08-21 09:13:47'],
-            [15, 18, 9, 'Registrasi Domain dataku22.ac.id (1 tahun)', '79000.00', '2026-08-30 07:25:47'],
         ];
 
         foreach ($rows as [$legacyId, $legacyInvoiceId, $legacyOrderId, $description, $amount, $createdAt]) {
@@ -365,22 +320,10 @@ class RestoreLegacyBillingSeeder extends Seeder
                 'created_at' => '2026-08-18 02:14:11', 'updated_at' => '2026-08-18 02:16:47',
             ],
             [
-                'id' => 10, 'reference' => 'PAY-2026-0004', 'invoice_id' => 9, 'client_id' => 14,
-                'amount' => '10000.00', 'fee' => '0.00', 'total' => '10000.00', 'status' => 'paid',
-                'external_id' => 'D1668526UT5NREQPJDN48HS', 'payment_method' => 'SP', 'paid_at' => '2026-08-18 21:26:58',
-                'created_at' => '2026-08-18 21:25:37', 'updated_at' => '2026-08-18 21:26:58',
-            ],
-            [
                 'id' => 11, 'reference' => 'PAY-2026-0005', 'invoice_id' => 10, 'client_id' => 14,
                 'amount' => '2000.00', 'fee' => '0.00', 'total' => '2000.00', 'status' => 'paid',
                 'external_id' => null, 'payment_method' => 'Saldo', 'paid_at' => '2026-08-18 21:29:03',
                 'created_at' => '2026-08-18 21:29:03', 'updated_at' => '2026-08-18 21:29:03',
-            ],
-            [
-                'id' => 12, 'reference' => 'PAY-2026-0006', 'invoice_id' => 14, 'client_id' => 17,
-                'amount' => '179000.00', 'fee' => '0.00', 'total' => '179000.00', 'status' => 'initiated',
-                'external_id' => 'D1668526GDVYBJ4F5EUL6FN', 'payment_method' => 'SP', 'paid_at' => null,
-                'created_at' => '2026-08-21 09:14:52', 'updated_at' => '2026-08-21 09:14:53',
             ],
             [
                 'id' => 14, 'reference' => 'PAY-2026-0007', 'invoice_id' => 12, 'client_id' => 14,
@@ -443,14 +386,11 @@ class RestoreLegacyBillingSeeder extends Seeder
         $links = [
             'appdataku.my.id' => [
                 'order_id' => [5, 'order'],
-                'renewal_invoice_id' => [13, 'invoice'],
-                'privacy_invoice_id' => [7, 'invoice'],
-            ],
-            'webku22.com' => [
-                'order_id' => [7, 'order'],
-            ],
-            'dataku22.ac.id' => [
-                'order_id' => [9, 'order'],
+                // renewal_invoice_id (INV-0008) dan privacy_invoice_id (INV-0003)
+                // sengaja TIDAK ditautkan lagi: keduanya dipulihkan sebagai
+                // cancelled karena melanggar aturan (renewal di luar H-30,
+                // ID Protection untuk domain .id / PANDI). Menautkannya
+                // akan membuat domain macet menunggu invoice yang dibatalkan.
             ],
         ];
 
@@ -621,7 +561,7 @@ class RestoreLegacyBillingSeeder extends Seeder
             return;
         }
 
-        $this->command->info('Pemulihan data billing dari snapshot SQL selesai.');
+        $this->command->info('Pemulihan data billing appdataku.my.id dari snapshot SQL selesai.');
         foreach ($this->counts as $kind => $tables) {
             foreach ($tables as $table => $count) {
                 $this->command->line("  {$kind}: {$table} = {$count}");

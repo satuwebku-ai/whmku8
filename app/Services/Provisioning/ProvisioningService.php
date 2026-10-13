@@ -721,6 +721,29 @@ class ProvisioningService
             return;
         }
 
+        // Pengaman kedua: jangan pernah mengaktifkan WHOIS Privacy di
+        // registrar untuk domain .id (aturan PANDI), apa pun jalur
+        // pembayarannya. Invoice-nya perlu ditinjau/direfund admin.
+        if (! $domain->supportsPrivacy()) {
+            Log::warning('ID Protection ditolak untuk domain .id (aturan PANDI).', [
+                'domain_id' => $domain->id,
+                'invoice_id' => $invoice->id,
+            ]);
+
+            ActivityLog::record(
+                'domain',
+                "ID Protection ditolak: {$domain->domain_name}",
+                'Domain .id tidak boleh memakai WHOIS Privacy (PANDI). Tinjau/refund invoice ' . $invoice->invoice_number . '.',
+                route('admin.domains.details', $domain),
+                'warning',
+                $domain->client_id,
+            );
+
+            $domain->update(['privacy_invoice_id' => null]);
+
+            return;
+        }
+
         $service = DomainRegistrarFactory::make($domain->registrar);
 
         if (! method_exists($service, 'enablePrivacyProtection')) {
