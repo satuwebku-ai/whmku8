@@ -11,6 +11,8 @@ class CmsCategory extends Model
 
     public const CONTENT_TYPE = 'category';
 
+    public const SLUG_FALLBACK = 'kategori';
+
     protected $fillable = ['name', 'slug'];
 
     public function posts(): HasMany

@@ -79,7 +79,7 @@
             @foreach ($navMenus as $item)
               @php
                 $validChildren = $item->direct_child_target ? collect() : $item->children->filter(fn ($c) => $c->resolved_url);
-                $isActive = $item->active_pattern && request()->routeIs($item->active_pattern);
+                $isActive = $item->is_current;
               @endphp
 
               @if ($validChildren->isNotEmpty())
@@ -97,7 +97,7 @@
                       </div>
                       <div class="mega-menu-grid">
                         @foreach ($validChildren as $child)
-                          <a class="mega-menu-card {{ $child->active_pattern && request()->routeIs($child->active_pattern) ? 'active' : '' }}" href="{{ $child->resolved_url }}" @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif>
+                          <a class="mega-menu-card {{ $child->is_current ? 'active' : '' }}" href="{{ $child->resolved_url }}" @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif>
                             <i class="bi {{ $child->mega_icon }}"></i><span><strong>{{ $child->label }}</strong><small>{{ $child->mega_description }}</small></span>
                           </a>
                         @endforeach

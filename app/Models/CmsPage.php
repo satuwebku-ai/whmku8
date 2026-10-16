@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
 class CmsPage extends Model
@@ -14,28 +15,55 @@ class CmsPage extends Model
 
     public const CONTENT_TYPE = 'page';
 
-    /**
-     * Kata yang tidak boleh dipakai sebagai slug halaman.
-     *
-     * Sejak URL halaman dipindah ke root (tanpa awalan /p/), setiap slug
-     * baru punya risiko bentrok dengan route bawaan aplikasi — kalau
-     * seseorang membuat halaman berjudul "Hosting", judul itu akan
-     * merebut alamat yang sama dengan halaman katalog hosting yang asli.
-     * Daftar ini mencegah itu terjadi sejak awal, dengan pesan yang jelas,
-     * daripada halaman diam-diam tidak bisa diakses tanpa penjelasan.
-     */
-    public const RESERVED_SLUGS = [
-        'admin', 'client', 'hosting', 'vps', 'cek-domain', 'keranjang', 'chat',
-        'p', 'announcements', 'blog', 'knowledge-base', 'payment', 'storage', 'build', 'vendor',
-        'promo', 'lisensi', 'store',
-        'api', 'login', 'register', 'logout', 'dashboard', 'home',
-        'domain-premium', 'transfer-domain', 'ref',
-        'robots.txt', 'sitemap.xml', 'favicon.ico',
-    ];
+    public const SLUG_FALLBACK = 'halaman';
 
+    /**
+     * Slug yang tidak boleh dipakai halaman karena bentrok dengan alamat
+     * sistem. Sejak halaman dilayani dari root (/{slug}), halaman berjudul
+     * "Hosting" akan merebut alamat katalog hosting yang asli.
+     *
+     * Sumbernya dua: (1) segmen pertama SEMUA route GET di host publik --
+     * otomatis, jadi route baru ikut terlindungi tanpa mengedit daftar;
+     * (2) config('cms.reserved_slugs') untuk kata di luar route.
+     */
     public static function isReservedSlug(string $slug): bool
     {
-        return in_array(Str::slug($slug), static::RESERVED_SLUGS, true);
+        $slug = Str::slug($slug);
+
+        return in_array($slug, config('cms.reserved_slugs', []), true)
+            || in_array($slug, static::publicRouteSegments(), true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function publicRouteSegments(): array
+    {
+        static $cache = null;
+
+        // Jangan simpan hasil kosong: route bisa belum terdaftar saat pertama dipanggil.
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        // Sama dengan Route::getDomain(): skema (http://) dibuang.
+        $publicHost = str_replace(['http://', 'https://'], '', (string) config('portal_domains.public'));
+
+        $segments = collect(Route::getRoutes()->getRoutes())
+            ->filter(fn ($route) => in_array('GET', $route->methods(), true)
+                && (string) $route->getDomain() === $publicHost)
+            ->map(fn ($route) => explode('/', trim($route->uri(), '/'))[0])
+            ->filter(fn (string $segment) => preg_match('/^[a-z0-9\-]+$/', $segment) === 1)
+            ->unique()
+            ->values()
+            ->all();
+
+        return $segments === [] ? [] : ($cache = $segments);
+    }
+
+    protected static function slugIsReserved(string $slug): bool
+    {
+        return static::isReservedSlug($slug);
     }
 
     protected $fillable = [
@@ -66,22 +94,7 @@ class CmsPage extends Model
 
     public static function uniqueSlug(string $title, ?int $ignoreId = null): string
     {
-        $base = Str::slug($title) ?: 'halaman';
-        $slug = $base;
-        $i = 2;
-
-        // Slug otomatis (judul dikosongkan) juga tidak boleh jatuh ke kata
-        // terlarang — kalau ada yang membuat halaman berjudul "Admin" tanpa
-        // mengisi slug manual, slug-nya digeser jadi "admin-2", bukan gagal
-        // diam-diam.
-        while (
-            static::isReservedSlug($slug)
-            || static::where('slug', $slug)->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))->exists()
-        ) {
-            $slug = $base . '-' . $i++;
-        }
-
-        return $slug;
+        return static::uniqueSlugFor($title, $ignoreId);
     }
 
     public function scopePublished(Builder $query): Builder

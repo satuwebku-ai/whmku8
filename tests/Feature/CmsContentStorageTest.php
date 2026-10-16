@@ -92,6 +92,41 @@ class CmsContentStorageTest extends TestCase
 
         $this->assertFalse(CmsPage::isReservedSlug('tentang-kami'));
         $this->assertSame('promo-2', CmsPage::uniqueSlug('Promo'));
+        $this->assertSame('halaman', CmsPage::uniqueSlugFor(''));
+        $this->assertSame('artikel', CmsPost::uniqueSlugFor(''));
+        $this->assertSame('kategori', CmsCategory::uniqueSlugFor(''));
+    }
+
+    public function test_slugs_are_unique_within_each_type_but_may_repeat_across_types(): void
+    {
+        CmsPost::create(['title' => 'Panduan', 'slug' => 'panduan', 'content' => 'x', 'status' => 'draft']);
+        CmsCategory::create(['name' => 'Panduan', 'slug' => 'panduan']);
+
+        $this->assertSame('panduan-2', CmsPost::uniqueSlugFor('Panduan'));
+        $this->assertSame('panduan-2', CmsCategory::uniqueSlugFor('Panduan'));
+        $this->assertSame('panduan', CmsPage::uniqueSlugFor('Panduan'));
+        $this->assertSame('panduan', CmsPost::uniqueSlugFor('Panduan', CmsPost::where('slug', 'panduan')->value('id')));
+    }
+
+    public function test_every_public_get_route_segment_is_reserved_automatically(): void
+    {
+        $host = str_replace(['http://', 'https://'], '', (string) config('portal_domains.public'));
+        $found = 0;
+
+        foreach (\Illuminate\Support\Facades\Route::getRoutes()->getRoutes() as $route) {
+            if (! in_array('GET', $route->methods(), true) || (string) $route->getDomain() !== $host) {
+                continue;
+            }
+
+            $segment = explode('/', trim($route->uri(), '/'))[0];
+
+            if (preg_match('/^[a-z0-9\-]+$/', $segment) === 1) {
+                $found++;
+                $this->assertTrue(CmsPage::isReservedSlug($segment), "Segmen route publik '{$segment}' belum terlindungi dari slug halaman.");
+            }
+        }
+
+        $this->assertGreaterThan(0, $found, 'Tidak ada route publik yang cocok dengan host portal_domains.public.');
     }
 
     public function test_nav_menu_page_link_points_to_cms_contents_and_is_nulled_on_delete(): void

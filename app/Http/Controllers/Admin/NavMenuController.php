@@ -278,7 +278,7 @@ class NavMenuController extends Controller
         $rules = [
             'label' => ['required', 'string', 'max:50'],
             'type' => [$isDirectChildMode ? 'nullable' : 'required', 'in:route,page,url'],
-            'route_name' => [$isDirectChildMode ? 'nullable' : 'required_if:type,route', 'nullable', 'string', 'in:' . implode(',', array_keys(NavMenu::BUILTIN_ROUTES))],
+            'route_name' => [$isDirectChildMode ? 'nullable' : 'required_if:type,route', 'nullable', 'string', 'in:' . implode(',', array_keys(NavMenu::builtinRoutes()))],
             'page_id' => [
                 $isDirectChildMode ? 'nullable' : 'required_if:type,page',
                 'nullable',

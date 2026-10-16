@@ -92,7 +92,7 @@
 
           @if ($validChildren->isNotEmpty())
             <div class="public-menu-item py-2" style="margin:-.5rem 0" data-menu-item>
-              <button type="button" data-menu-toggle class="btn btn-link p-0 nav-link d-flex align-items-center gap-1 border-0 {{ $item->active_pattern && request()->routeIs($item->active_pattern) ? 'active' : '' }}">
+              <button type="button" data-menu-toggle class="btn btn-link p-0 nav-link d-flex align-items-center gap-1 border-0 {{ $item->is_current ? 'active' : '' }}">
                 {{ $item->label }}
                 <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.5"></i>
               </button>
@@ -107,7 +107,7 @@
                   </div>
                   <div class="public-mega-grid">
                     @foreach ($validChildren as $child)
-                      <a href="{{ $child->resolved_url }}" class="public-mega-card {{ $child->active_pattern && request()->routeIs($child->active_pattern) ? 'active' : '' }}" @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif>
+                      <a href="{{ $child->resolved_url }}" class="public-mega-card {{ $child->is_current ? 'active' : '' }}" @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif>
                         <i class="{{ $child->mega_fa_icon }}"></i><span><strong>{{ $child->label }}</strong><small>{{ $child->mega_description }}</small></span>
                       </a>
                     @endforeach
@@ -118,7 +118,7 @@
           @elseif ($item->resolved_url)
             <a href="{{ $item->resolved_url }}"
                @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-               class="nav-link text-decoration-none {{ $item->active_pattern && request()->routeIs($item->active_pattern) ? 'active' : '' }}">
+               class="nav-link text-decoration-none {{ $item->is_current ? 'active' : '' }}">
               {{ $item->label }}
             </a>
           @endif
@@ -145,7 +145,7 @@
         @if ($item->resolved_url)
           <a href="{{ $item->resolved_url }}"
              @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-             class="text-nowrap text-decoration-none {{ $item->active_pattern && request()->routeIs($item->active_pattern) ? 'text-theme fw-medium' : 'text-muted' }}">
+             class="text-nowrap text-decoration-none {{ $item->is_current ? 'text-theme fw-medium' : 'text-muted' }}">
             {{ $item->label }}
           </a>
         @endif
@@ -154,7 +154,7 @@
             @continue(! $child->resolved_url)
             <a href="{{ $child->resolved_url }}"
                @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-               class="text-nowrap text-decoration-none {{ $child->active_pattern && request()->routeIs($child->active_pattern) ? 'text-theme fw-medium' : 'text-muted' }}">
+               class="text-nowrap text-decoration-none {{ $child->is_current ? 'text-theme fw-medium' : 'text-muted' }}">
               <i class="fa-solid fa-arrow-turn-up fa-rotate-90" style="font-size:9px"></i> {{ $child->label }}
             </a>
           @endforeach

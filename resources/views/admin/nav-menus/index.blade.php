@@ -69,7 +69,7 @@
               @switch($menu->type)
                 @case('route')
                   <i class="fa-solid fa-house" style="font-size:10px"></i>
-                  Halaman bawaan — {{ \App\Models\NavMenu::BUILTIN_ROUTES[$menu->route_name] ?? $menu->route_name }}
+                  Halaman bawaan — {{ $menu->route_label }}
                   @break
                 @case('page')
                   <i class="fa-regular fa-file" style="font-size:10px"></i>

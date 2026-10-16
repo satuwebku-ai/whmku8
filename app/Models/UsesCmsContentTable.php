@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\UniqueSlug;
 
 /**
  * Shared storage for CMS pages, blog posts, and blog categories.
  *
- * Each public model defines CONTENT_TYPE so callers keep using the same
- * familiar model APIs while reads and writes stay isolated by content type.
+ * Each public model defines CONTENT_TYPE (tipe di kolom `type`) dan
+ * SLUG_FALLBACK (slug cadangan kalau judul kosong), sehingga pemanggil tetap
+ * memakai API model yang sama sementara baca/tulis terpisah per tipe.
  */
 trait UsesCmsContentTable
 {
@@ -20,6 +22,26 @@ trait UsesCmsContentTable
     public function initializeUsesCmsContentTable(): void
     {
         $this->setTable('cms_contents');
+    }
+
+    /**
+     * Slug unik di dalam tipenya sendiri (global scope sudah membatasi query
+     * ke tipe model ini). Satu-satunya tempat logika slug CMS -- controller
+     * dan hook model sama-sama memanggil ini.
+     */
+    public static function uniqueSlugFor(string $value, ?int $ignoreId = null): string
+    {
+        return UniqueSlug::make($value, static::SLUG_FALLBACK, fn (string $slug): bool => static::slugIsReserved($slug)
+            || static::query()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn (Builder $query) => $query->where('id', '!=', $ignoreId))
+                ->exists());
+    }
+
+    /** Tipe yang punya slug terlarang (halaman) menimpa method ini. */
+    protected static function slugIsReserved(string $slug): bool
+    {
+        return false;
     }
 
     /**

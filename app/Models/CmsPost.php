@@ -12,6 +12,8 @@ class CmsPost extends Model
 
     public const CONTENT_TYPE = 'post';
 
+    public const SLUG_FALLBACK = 'artikel';
+
     protected $fillable = [
         'cms_category_id', 'admin_id', 'title', 'slug', 'excerpt',
         'content', 'cover_image', 'status', 'published_at',

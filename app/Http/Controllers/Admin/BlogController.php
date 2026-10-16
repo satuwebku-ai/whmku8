@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CmsCategory;
 use App\Models\CmsPost;
-use App\Support\UniqueSlug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,7 +36,7 @@ class BlogController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
-        $data['slug'] = $this->uniqueSlug(($data['slug'] ?? '') ?: $data['title']);
+        $data['slug'] = CmsPost::uniqueSlugFor(($data['slug'] ?? '') ?: $data['title']);
         $data['admin_id'] = auth('admin')->id();
         $this->setPublicationDate($data);
 
@@ -57,7 +56,7 @@ class BlogController extends Controller
     public function update(Request $request, CmsPost $post): RedirectResponse
     {
         $data = $this->validated($request);
-        $data['slug'] = $this->uniqueSlug(($data['slug'] ?? '') ?: $data['title'], $post->id);
+        $data['slug'] = CmsPost::uniqueSlugFor(($data['slug'] ?? '') ?: $data['title'], $post->id);
         $this->setPublicationDate($data, $post);
         $post->update($data);
 
@@ -98,7 +97,7 @@ class BlogController extends Controller
     public function storeCategory(Request $request): RedirectResponse
     {
         $data = $this->validatedCategory($request);
-        $data['slug'] = $this->uniqueCategorySlug(($data['slug'] ?? '') ?: $data['name']);
+        $data['slug'] = CmsCategory::uniqueSlugFor(($data['slug'] ?? '') ?: $data['name']);
         CmsCategory::create($data);
 
         return redirect()->route('admin.blog.categories')->with('success', 'Kategori blog berhasil dibuat.');
@@ -107,7 +106,7 @@ class BlogController extends Controller
     public function updateCategory(Request $request, CmsCategory $category): RedirectResponse
     {
         $data = $this->validatedCategory($request, $category);
-        $data['slug'] = $this->uniqueCategorySlug(($data['slug'] ?? '') ?: $data['name'], $category->id);
+        $data['slug'] = CmsCategory::uniqueSlugFor(($data['slug'] ?? '') ?: $data['name'], $category->id);
         $category->update($data);
 
         return redirect()->route('admin.blog.categories')->with('success', 'Kategori blog berhasil diperbarui.');
@@ -159,21 +158,5 @@ class BlogController extends Controller
         if ($data['status'] === 'published' && blank($data['published_at'] ?? null)) {
             $data['published_at'] = $post?->published_at ?? now();
         }
-    }
-
-    private function uniqueSlug(string $value, ?int $ignoreId = null): string
-    {
-        return UniqueSlug::make($value, 'artikel', fn (string $slug) => CmsPost::query()
-            ->where('slug', $slug)
-            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
-            ->exists());
-    }
-
-    private function uniqueCategorySlug(string $value, ?int $ignoreId = null): string
-    {
-        return UniqueSlug::make($value, 'kategori', fn (string $slug) => CmsCategory::query()
-            ->where('slug', $slug)
-            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
-            ->exists());
     }
 }

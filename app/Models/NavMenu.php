@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 class NavMenu extends Model
@@ -27,7 +28,7 @@ class NavMenu extends Model
         return $this->belongsTo(NavMenu::class, 'parent_id');
     }
 
-    public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function children(): HasMany
     {
         return $this->hasMany(NavMenu::class, 'parent_id')
             ->where('is_active', true)
@@ -41,56 +42,35 @@ class NavMenu extends Model
      * bikin bingung "kok submenu-nya nggak ada". Jangan dipakai di
      * layout publik -- di situ harus children() yang sudah difilter.
      */
-    public function allChildren(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function allChildren(): HasMany
     {
         return $this->hasMany(NavMenu::class, 'parent_id')->orderBy('sort_order');
     }
 
     /**
-     * Halaman bawaan sistem yang boleh dipilih untuk tipe "route".
-     * Dibatasi ke daftar ini (bukan nama route bebas) supaya admin tidak
-     * bisa memasukkan nama route yang tidak ada dan mematahkan menu.
+     * Halaman bawaan sistem yang boleh dipilih untuk tipe "route"
+     * (route => label). Sumbernya config/nav_menu.php.
      *
-     * Keranjang (cart.index) SENGAJA tidak dimasukkan di sini -- itu
-     * bagian dari proses checkout (dipicu tombol "Tambah ke Keranjang"
-     * di halaman produk/domain, lewat ikon keranjang di header), bukan
-     * halaman untuk dijelajah lewat menu navigasi. Mirip cart.php di
-     * WHMCS yang punya jalurnya sendiri, terpisah dari menu situs.
+     * @return array<string, string>
      */
-    public const BUILTIN_ROUTES = [
-        '#' => '# (Tanpa Tautan)',
-        'home' => 'Beranda',
-        'catalog.index' => 'Katalog Hosting',
-        'catalog.vps' => 'Katalog VPS / Cloud Server',
-        'domain.search' => 'Cek Domain',
-        'domains.transfer' => 'Transfer Domain',
-        'domain-premium.index' => 'Domain Premium',
-        'license.index' => 'Lisensi',
-        'promo.index' => 'Promo & Diskon',
-        'announcements.index' => 'Pengumuman',
-        'blog.index' => 'Blog',
-        'knowledge-base.index' => 'Pusat Bantuan',
-    ];
+    public static function builtinRoutes(): array
+    {
+        return array_map(fn (array $meta) => $meta['label'], config('nav_menu.routes', []));
+    }
 
-    /**
-     * Ikon & keterangan singkat untuk kartu di Mega Menu (tema NamaHost).
-     * Tidak butuh kolom baru di database: diturunkan dari tipe/route
-     * tujuan submenu, jadi cukup atur dari admin/nav-submenus.
-     */
-    public const MEGA_ROUTE_META = [
-        '#' => ['bi-link-45deg', 'Tanpa tautan', 'fa-link'],
-        'home' => ['bi-house-door', 'Kembali ke beranda', 'fa-house'],
-        'catalog.index' => ['bi-hdd-rack', 'Lihat semua paket server', 'fa-server'],
-        'catalog.vps' => ['bi-cloud', 'Cloud server dan VPS', 'fa-cloud'],
-        'domain.search' => ['bi-globe2', 'Cari dan daftarkan domain', 'fa-globe'],
-        'domains.transfer' => ['bi-arrow-left-right', 'Pindahkan domain ke sini', 'fa-right-left'],
-        'domain-premium.index' => ['bi-gem', 'Nama domain pilihan', 'fa-gem'],
-        'license.index' => ['bi-key', 'Lisensi software resmi', 'fa-key'],
-        'promo.index' => ['bi-tag', 'Kode promo dan diskon terbaru', 'fa-tags'],
-        'announcements.index' => ['bi-megaphone', 'Kabar dan info terbaru', 'fa-bullhorn'],
-        'blog.index' => ['bi-journal-text', 'Artikel dan tips terbaru', 'fa-newspaper'],
-        'knowledge-base.index' => ['bi-life-preserver', 'Panduan dan jawaban umum', 'fa-circle-question'],
-    ];
+    /** Metadata satu route bawaan (label, desc, bi, fa, active), atau [] kalau tidak dikenal. */
+    private static function routeMeta(?string $routeName): array
+    {
+        // Jangan config('nav_menu.routes.' . $routeName): nama route berisi titik
+        // (blog.index) dan akan dibaca sebagai kunci bertingkat.
+        return config('nav_menu.routes', [])[(string) $routeName] ?? [];
+    }
+
+    /** Nama tampilan route bawaan; nama route-nya sendiri kalau tidak dikenal. */
+    public function getRouteLabelAttribute(): ?string
+    {
+        return self::routeMeta($this->route_name)['label'] ?? $this->route_name;
+    }
 
     /**
      * Subnav yang jadi tujuan LANGSUNG saat Menu Utama ini diklik di
@@ -105,10 +85,8 @@ class NavMenu extends Model
 
     public function page(): BelongsTo
     {
-        // FK disebut eksplisit -- kolomnya TETAP page_id (tidak ikut
-        // di-rename saat model Page jadi CmsPage), jadi tidak boleh
-        // mengandalkan tebakan otomatis Eloquent (yang sekarang akan
-        // menebak cms_page_id dan salah).
+        // Halaman CMS = baris cms_contents bertipe 'page'. Kolomnya page_id,
+        // jadi FK disebut eksplisit (tebakan Eloquent akan salah: cms_page_id).
         return $this->belongsTo(CmsPage::class, 'page_id');
     }
 
@@ -118,7 +96,7 @@ class NavMenu extends Model
     }
 
     /**
-     * Cek apakah sebuah nama route bawaan (lihat BUILTIN_ROUTES) sedang
+     * Cek apakah sebuah nama route bawaan (lihat config/nav_menu.php) sedang
      * terdaftar sebagai Menu Utama ATAU Submenu yang aktif -- dipakai
      * oleh halaman yang aksesnya sengaja digantungkan ke Menu Navigasi
      * (mis. Domain Premium), supaya halaman itu otomatis 404 kalau
@@ -190,7 +168,7 @@ class NavMenu extends Model
     public function getMegaIconAttribute(): string
     {
         return match ($this->type) {
-            'route' => self::MEGA_ROUTE_META[$this->route_name][0] ?? 'bi-grid-1x2',
+            'route' => self::routeMeta($this->route_name)['bi'] ?? 'bi-grid-1x2',
             'page' => 'bi-file-earmark-text',
             default => 'bi-link-45deg',
         };
@@ -200,7 +178,7 @@ class NavMenu extends Model
     public function getMegaFaIconAttribute(): string
     {
         return 'fa-solid ' . match ($this->type) {
-            'route' => self::MEGA_ROUTE_META[$this->route_name][2] ?? 'fa-table-cells-large',
+            'route' => self::routeMeta($this->route_name)['fa'] ?? 'fa-table-cells-large',
             'page' => 'fa-file-lines',
             default => 'fa-link',
         };
@@ -209,7 +187,7 @@ class NavMenu extends Model
     public function getMegaDescriptionAttribute(): string
     {
         return match ($this->type) {
-            'route' => self::MEGA_ROUTE_META[$this->route_name][1] ?? 'Buka halaman',
+            'route' => self::routeMeta($this->route_name)['desc'] ?? 'Buka halaman',
             'page' => 'Halaman informasi',
             'url' => ($host = parse_url((string) $this->url, PHP_URL_HOST))
                 ? preg_replace('/^www\./', '', $host)
@@ -235,17 +213,19 @@ class NavMenu extends Model
                 // pola 'catalog.*' menyalakan menu Hosting juga di /vps.
                 'catalog.index' => self::catalogKind() === ProductType::KIND_VPS ? 'catalog.index' : 'catalog.*',
                 'catalog.vps' => self::catalogKind() === ProductType::KIND_VPS ? 'catalog.*' : 'catalog.vps',
-                'domains.transfer' => 'domains.*',
-                'domain.search' => 'domain.*',
-                'domain-premium.index' => 'domain-premium.*',
-                'license.index' => 'license.*',
-                'promo.index' => 'promo.*',
-                'announcements.index' => 'announcements.*',
-                default => $this->route_name,
+                default => self::routeMeta($this->route_name)['active'] ?? $this->route_name,
             },
             'page' => 'page.show',
             default => null,
         };
+    }
+
+    /** Apakah menu ini yang sedang dibuka (dipakai layout publik untuk kelas "active"). */
+    public function getIsCurrentAttribute(): bool
+    {
+        $pattern = $this->active_pattern;
+
+        return $pattern !== null && request()->routeIs($pattern);
     }
 
     /**

@@ -17,7 +17,7 @@
   <label class="form-label small fw-medium text-dark">Pilih Halaman Bawaan</label>
   <select name="route_name" class="form-select form-select-sm">
     <option value="">— Pilih —</option>
-    @foreach (\App\Models\NavMenu::BUILTIN_ROUTES as $key => $label)
+    @foreach (\App\Models\NavMenu::builtinRoutes() as $key => $label)
       <option value="{{ $key }}" @selected(old('route_name', $menu->route_name) === $key)>{{ $label }}</option>
     @endforeach
   </select>

@@ -81,7 +81,7 @@
               @switch($child->type)
                 @case('route')
                   <i class="fa-solid fa-house" style="font-size:10px"></i>
-                  {{ \App\Models\NavMenu::BUILTIN_ROUTES[$child->route_name] ?? $child->route_name }}
+                  {{ $child->route_label }}
                   @break
                 @case('page')
                   <i class="fa-regular fa-file" style="font-size:10px"></i>
