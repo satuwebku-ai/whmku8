@@ -4,7 +4,7 @@
 
   <div class="mb-4">
     <h1 class="h4 fw-bold text-dark mb-1">Pengaturan</h1>
-    <p class="small text-muted mb-0">Konfigurasi sistem dikelompokkan di sini. Isi situs publik (beranda, halaman, menu, banner) ada di menu Situs Publik.</p>
+    <p class="small text-muted mb-0">Konfigurasi sistem dikelompokkan di sini. Beranda, halaman, menu, banner, dan konten situs dikelola dari satu menu CMS.</p>
   </div>
 
   @foreach ($groups as $groupLabel => $cards)

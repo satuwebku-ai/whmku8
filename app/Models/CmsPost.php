@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CmsPost extends Model
 {
+    use UsesCmsContentTable;
+
+    public const CONTENT_TYPE = 'post';
+
     protected $fillable = [
         'cms_category_id', 'admin_id', 'title', 'slug', 'excerpt',
         'content', 'cover_image', 'status', 'published_at',
@@ -34,11 +38,6 @@ class CmsPost extends Model
             ->where(fn (Builder $query) => $query
                 ->whereNull('published_at')
                 ->orWhere('published_at', '<=', now()));
-    }
-
-    public function getSafeContentAttribute(): string
-    {
-        return \App\Support\HtmlSanitizer::clean($this->content);
     }
 
     public function getSeoTitleAttribute(): string

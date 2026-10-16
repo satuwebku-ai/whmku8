@@ -35,7 +35,7 @@ class CheckSetup extends Command
         'payments'           => 'Transaksi pembayaran (Fase 5)',
         'tickets'            => 'Support Ticket (Fase 6a)',
         'ticket_replies'     => 'Balasan tiket (Fase 6a)',
-        'cms_pages'         => 'Halaman CMS (Fase 6b)',
+        'cms_contents'      => 'Konten CMS (halaman, blog, kategori)',
         'announcements'      => 'Pengumuman (Fase 6b)',
         'settings'           => 'Pengaturan (Fase 6b)',
         'product_groups'    => 'Kategori produk / katalog (Fase 7)',

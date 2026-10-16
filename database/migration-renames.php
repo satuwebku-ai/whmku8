@@ -29,7 +29,7 @@ return [
     '2026_06_01_000001_create_payments_table' => '2026_01_01_000013_create_payments_table',
     '2026_07_01_000000_create_tickets_table' => '2026_01_01_000014_create_tickets_table',
     '2026_07_01_000001_create_ticket_replies_table' => '2026_01_01_000015_create_ticket_replies_table',
-    '2026_08_01_000000_create_pages_table' => '2026_01_01_000016_create_pages_table',
+    '2026_08_01_000000_create_pages_table' => '2026_01_01_000016_create_cms_contents_table',
     '2026_08_01_000001_create_announcements_table' => '2026_01_01_000017_create_announcements_table',
     '2026_08_01_000002_create_settings_table' => '2026_01_01_000018_create_settings_table',
     '2026_09_03_000000_create_ticket_attachments_table' => '2026_01_01_000019_create_ticket_attachments_table',
@@ -87,8 +87,8 @@ return [
     '2029_05_01_000015_create_ticket_departments_table' => null,
     '2029_05_01_000016_create_knowledge_base_categories_table' => '2026_01_01_000067_create_knowledge_base_categories_table',
     '2029_05_01_000017_create_knowledge_bases_table' => '2026_01_01_000068_create_knowledge_bases_table',
-    '2029_05_01_000018_create_cms_categories_table' => '2026_01_01_000069_create_cms_categories_table',
-    '2029_05_01_000019_create_cms_posts_table' => '2026_01_01_000070_create_cms_posts_table',
+    '2029_05_01_000018_create_cms_categories_table' => null,
+    '2029_05_01_000019_create_cms_posts_table' => null,
     '2029_05_01_000020_create_notifications_table' => '2026_01_01_000071_create_notifications_table',
     '2029_05_01_000021_remove_trial_cron_job' => null,
     '2029_06_01_000000_add_catalog_details_to_addons_table' => null,
@@ -118,4 +118,12 @@ return [
     '2026_10_07_000086_create_server_group_server_table' => null,
     '2026_10_07_000087_add_pending_upgrade_price_to_hosting_accounts' => null,
     '2026_10_07_000087_create_product_types_table' => null,
+
+    // ── CMS digabung ke satu tabel `cms_contents` (dibuat langsung di 000016) ──
+    // Database yang sudah menjalankan versi sebelumnya sudah memiliki tabel
+    // cms_contents; cukup selaraskan catatannya.
+    '2026_01_01_000016_create_pages_table' => '2026_01_01_000016_create_cms_contents_table',
+    '2026_01_01_000069_create_cms_categories_table' => null,
+    '2026_01_01_000070_create_cms_posts_table' => null,
+    '2026_01_01_000076_merge_cms_tables_into_cms_contents' => null,
 ];

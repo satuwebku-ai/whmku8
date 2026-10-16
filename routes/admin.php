@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\BlogController;
 use App\Http\Controllers\Admin\ChatController;
+use App\Http\Controllers\Admin\CmsDashboardController;
 use App\Http\Controllers\Admin\MailboxController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\CouponController;
@@ -467,6 +468,8 @@ Route::middleware(['admin', 'check.status'])->group(function () {
     // ── CMS: Halaman Statis, Pengumuman, Menu Navigasi — konten situs
     //    publik. Modul: content.
     Route::middleware('module:content')->group(function () {
+        Route::get('cms', [CmsDashboardController::class, 'index'])->name('cms.dashboard');
+
         // ── CMS: Halaman Statis (Fase 6b) ──
         Route::controller(PageController::class)->group(function () {
             Route::get('pages', 'pagesBootstrap')->name('pages');
@@ -529,6 +532,7 @@ Route::middleware(['admin', 'check.status'])->group(function () {
         Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
             Route::get('homepage', 'homepage')->name('homepage');
             Route::post('homepage', 'updateHomepage')->name('homepage.update');
+            Route::post('homepage/content', 'updateHomepageContent')->name('homepage.content.update');
         });
 
         // ── CMS: Banner Promo ──

@@ -115,7 +115,7 @@ class BlogController extends Controller
 
     public function destroyCategory(CmsCategory $category): RedirectResponse
     {
-        // Foreign key cms_posts.cms_category_id uses nullOnDelete().
+        // The shared CMS content table uses nullOnDelete() for category links.
         $category->delete();
 
         return redirect()->route('admin.blog.categories')->with('success', 'Kategori blog dihapus. Artikel terkait tetap tersimpan.');
@@ -126,7 +126,11 @@ class BlogController extends Controller
         return $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
-            'cms_category_id' => ['nullable', 'integer', 'exists:cms_categories,id'],
+            'cms_category_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('cms_contents', 'id')->where('type', CmsCategory::CONTENT_TYPE),
+            ],
             'excerpt' => ['nullable', 'string', 'max:255'],
             'content' => ['required', 'string'],
             'cover_image' => ['nullable', 'url:http,https', 'max:255'],
@@ -139,7 +143,14 @@ class BlogController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', Rule::unique('cms_categories', 'slug')->ignore($category?->id)],
+            'slug' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('cms_contents', 'slug')
+                    ->where('type', CmsCategory::CONTENT_TYPE)
+                    ->ignore($category?->id),
+            ],
         ]);
     }
 

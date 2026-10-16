@@ -1,42 +1,90 @@
 @php
-  // Tab CMS dikelompokkan sesuai alur kerja di sidebar "Situs Publik".
-  // 'match' memakai pola route supaya tab tetap menyala di halaman
-  // tambah/ubah (mis. admin.blog.edit), bukan cuma di halaman daftar.
-  $cmsGroups = [
-    'Halaman' => [
-      ['label' => 'Halaman Depan', 'route' => 'admin.settings.homepage', 'match' => ['admin.settings.homepage*']],
-      ['label' => 'Halaman Statis', 'route' => 'admin.pages', 'match' => ['admin.pages', 'admin.page.*']],
+  /*
+   * Navigasi CMS: satu baris tab untuk semua bagian konten situs, plus
+   * baris sub-tab bila bagian itu punya lebih dari satu halaman. Dipakai
+   * semua halaman CMS lewat @include('admin.pages._nav').
+   *
+   * 'match' = pola route yang menandai tab aktif. Pola yang lebih spesifik
+   * (mis. kategori blog) cukup masuk ke sub-tab; tab induknya tetap menyala.
+   */
+  $cmsTabs = [
+    'home' => [
+      'label' => 'Beranda', 'route' => 'admin.settings.homepage',
+      'match' => ['admin.settings.homepage*'],
     ],
-    'Navigasi' => [
-      ['label' => 'Menu Utama', 'route' => 'admin.nav-menus', 'match' => ['admin.nav-menus', 'admin.nav-menu.*']],
-      ['label' => 'Submenu / Subnav', 'route' => 'admin.nav-submenus', 'match' => ['admin.nav-submenus', 'admin.nav-submenu.*']],
+    'pages' => [
+      'label' => 'Halaman', 'route' => 'admin.pages',
+      'match' => ['admin.pages', 'admin.page.*'],
     ],
-    'Promosi' => [
-      ['label' => 'Banner Promo', 'route' => 'admin.promo-banners.index', 'match' => ['admin.promo-banners.*']],
-      ['label' => 'Banner Popup', 'route' => 'admin.popup-banner.edit', 'match' => ['admin.popup-banner.*']],
-      ['label' => 'Pengumuman', 'route' => 'admin.announcements', 'match' => ['admin.announcements', 'admin.announcement.*']],
+    'nav' => [
+      'label' => 'Navigasi', 'route' => 'admin.nav-menus',
+      'match' => ['admin.nav-menus', 'admin.nav-menu.*', 'admin.nav-submenus', 'admin.nav-submenu.*'],
+      'subs' => [
+        ['label' => 'Menu Utama', 'route' => 'admin.nav-menus', 'match' => ['admin.nav-menus', 'admin.nav-menu.*']],
+        ['label' => 'Submenu', 'route' => 'admin.nav-submenus', 'match' => ['admin.nav-submenus', 'admin.nav-submenu.*']],
+      ],
     ],
-    'Artikel' => [
-      ['label' => 'Blog', 'route' => 'admin.blog.index', 'match' => ['admin.blog.index', 'admin.blog.create', 'admin.blog.edit', 'admin.blog.store', 'admin.blog.update']],
-      ['label' => 'Kategori Blog', 'route' => 'admin.blog.categories', 'match' => ['admin.blog.categories*']],
-      ['label' => 'Pusat Bantuan', 'route' => 'admin.knowledge-base.index', 'match' => ['admin.knowledge-base.index', 'admin.knowledge-base.create', 'admin.knowledge-base.edit', 'admin.knowledge-base.store', 'admin.knowledge-base.update']],
-      ['label' => 'Kategori Bantuan', 'route' => 'admin.knowledge-base.categories', 'match' => ['admin.knowledge-base.categories*']],
+    'promo' => [
+      'label' => 'Promosi', 'route' => 'admin.promo-banners.index',
+      'match' => ['admin.promo-banners.*', 'admin.popup-banner.*', 'admin.announcements', 'admin.announcement.*'],
+      'subs' => [
+        ['label' => 'Banner Promo', 'route' => 'admin.promo-banners.index', 'match' => ['admin.promo-banners.*']],
+        ['label' => 'Popup', 'route' => 'admin.popup-banner.edit', 'match' => ['admin.popup-banner.*']],
+        ['label' => 'Pengumuman', 'route' => 'admin.announcements', 'match' => ['admin.announcements', 'admin.announcement.*']],
+      ],
+    ],
+    'blog' => [
+      'label' => 'Blog', 'route' => 'admin.blog.index',
+      'match' => ['admin.blog.*'],
+      'subs' => [
+        ['label' => 'Artikel', 'route' => 'admin.blog.index', 'match' => ['admin.blog.*'], 'except' => ['admin.blog.categories*']],
+        ['label' => 'Kategori', 'route' => 'admin.blog.categories', 'match' => ['admin.blog.categories*']],
+      ],
+    ],
+    'kb' => [
+      'label' => 'Pusat Bantuan', 'route' => 'admin.knowledge-base.index',
+      'match' => ['admin.knowledge-base.*'],
+      'subs' => [
+        ['label' => 'Panduan', 'route' => 'admin.knowledge-base.index', 'match' => ['admin.knowledge-base.*'], 'except' => ['admin.knowledge-base.categories*']],
+        ['label' => 'Kategori', 'route' => 'admin.knowledge-base.categories', 'match' => ['admin.knowledge-base.categories*']],
+      ],
+    ],
+    'notif' => [
+      'label' => 'Notifikasi', 'route' => 'admin.notification-templates.index',
+      'match' => ['admin.notification-templates.*'],
     ],
   ];
+
+  $cmsIsActive = static fn (array $item): bool => request()->routeIs(...$item['match'])
+    && ! (isset($item['except']) && request()->routeIs(...$item['except']));
+
+  $cmsActiveTab = collect($cmsTabs)->first(fn ($tab) => $cmsIsActive($tab));
 @endphp
 
-<div class="d-flex align-items-end gap-4 mb-4 border-bottom flex-wrap">
-  @foreach ($cmsGroups as $groupLabel => $tabs)
-    <div>
-      <div class="text-uppercase text-muted fw-semibold px-3" style="font-size:10px;letter-spacing:.12em">{{ $groupLabel }}</div>
-      <div class="d-flex align-items-center gap-1">
-        @foreach ($tabs as $tab)
-          <a href="{{ route($tab['route']) }}"
-             class="px-3 py-2 small fw-medium text-decoration-none border-bottom border-2 {{ request()->routeIs(...$tab['match']) ? 'border-primary text-accent' : 'border-transparent text-muted' }}">
-            {{ $tab['label'] }}
-          </a>
-        @endforeach
-      </div>
-    </div>
-  @endforeach
+{{-- Memakai kelas .nav-tabs dan .section-jump-nav yang sudah ada di lumora-admin.css --}}
+<div class="mb-4">
+  <a href="{{ route('admin.cms.dashboard') }}" class="btn btn-outline-secondary btn-sm mb-3">
+    <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i> Ringkasan CMS
+  </a>
+
+  <ul class="nav nav-tabs" aria-label="Bagian CMS">
+    @foreach ($cmsTabs as $tab)
+      <li class="nav-item">
+        <a href="{{ route($tab['route']) }}"
+           class="nav-link {{ $cmsActiveTab === $tab ? 'active' : '' }}"
+           @if ($cmsActiveTab === $tab) aria-current="page" @endif>{{ $tab['label'] }}</a>
+      </li>
+    @endforeach
+  </ul>
+
+  @if ($cmsActiveTab && ! empty($cmsActiveTab['subs']))
+    <ul class="nav section-jump-nav gap-1 mt-3" aria-label="Sub bagian {{ $cmsActiveTab['label'] }}">
+      @foreach ($cmsActiveTab['subs'] as $sub)
+        <li class="nav-item">
+          <a href="{{ route($sub['route']) }}"
+             class="nav-link py-1 {{ $cmsIsActive($sub) ? 'active' : '' }}">{{ $sub['label'] }}</a>
+        </li>
+      @endforeach
+    </ul>
+  @endif
 </div>

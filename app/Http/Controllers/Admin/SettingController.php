@@ -374,6 +374,68 @@ class SettingController extends Controller
         return back()->with('success', 'Pengaturan halaman depan berhasil disimpan.');
     }
 
+    /**
+     * Simpan teks beranda: hero, Keunggulan, Langkah, dan Ajakan. Kalau isinya sama
+     * persis dengan bawaan (atau dikosongkan), nilai tersimpan dikosongkan
+     * supaya tiap tema kembali memakai teks bawaannya sendiri.
+     */
+    public function updateHomepageContent(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'benefits'             => ['nullable', 'array', 'max:' . \App\Support\HomeContent::MAX_BENEFITS],
+            'benefits.*.title'     => ['nullable', 'string', 'max:60'],
+            'benefits.*.desc'      => ['nullable', 'string', 'max:200'],
+            'cta.title'            => ['nullable', 'string', 'max:100'],
+            'cta.text'             => ['nullable', 'string', 'max:200'],
+            'cta.primary'          => ['nullable', 'string', 'max:40'],
+            'cta.secondary'        => ['nullable', 'string', 'max:40'],
+            'hero_text'            => ['nullable', 'string', 'max:200'],
+            'steps'                => ['nullable', 'array', 'max:' . \App\Support\HomeContent::MAX_STEPS],
+            'steps.*.title'        => ['nullable', 'string', 'max:60'],
+            'steps.*.desc'         => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $benefits = [];
+        foreach ($data['benefits'] ?? [] as $row) {
+            $title = trim((string) ($row['title'] ?? ''));
+
+            if ($title !== '') {
+                $benefits[] = ['title' => $title, 'desc' => trim((string) ($row['desc'] ?? ''))];
+            }
+        }
+
+        $isDefaultBenefits = $benefits === \App\Support\HomeContent::DEFAULT_BENEFITS;
+
+        $cta = [];
+        foreach (['title', 'text', 'primary', 'secondary'] as $key) {
+            $value = trim((string) ($data['cta'][$key] ?? ''));
+
+            if ($value !== '' && $value !== \App\Support\HomeContent::DEFAULT_CTA[$key]) {
+                $cta[$key] = $value;
+            }
+        }
+
+        $steps = [];
+        foreach ($data['steps'] ?? [] as $row) {
+            $title = trim((string) ($row['title'] ?? ''));
+
+            if ($title !== '') {
+                $steps[] = ['title' => $title, 'desc' => trim((string) ($row['desc'] ?? ''))];
+            }
+        }
+
+        $isDefaultSteps = $steps === \App\Support\HomeContent::DEFAULT_STEPS;
+
+        Setting::putMany([
+            'home_hero_text' => trim((string) ($data['hero_text'] ?? '')),
+            'home_steps'     => ($steps && ! $isDefaultSteps) ? json_encode($steps, JSON_UNESCAPED_UNICODE) : '',
+            'home_benefits' => ($benefits && ! $isDefaultBenefits) ? json_encode($benefits, JSON_UNESCAPED_UNICODE) : '',
+            'home_cta'      => $cta ? json_encode($cta, JSON_UNESCAPED_UNICODE) : '',
+        ], 'general');
+
+        return back()->with('success', 'Teks beranda berhasil disimpan.');
+    }
+
     public function seoBootstrap(): View
     {
         return view('admin.settings.seo');

@@ -132,19 +132,26 @@
               ['label' => 'Support / Tiket',  'route' => 'admin.tickets', 'match' => ['admin.ticket*']],
             ]],
 
-            // Situs Publik = semua yang tampil di website pelanggan, urut dari
-            // yang paling sering diubah: beranda -> halaman -> navigasi -> promo
-            // -> konten berkala. Template Notifikasi ikut modul yang sama
-            // (isi email/WA), jadi ditaruh paling bawah.
-            ['label' => 'Situs Publik', 'icon' => 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z', 'module' => 'content', 'children' => [
-              ['label' => 'Halaman Depan',       'route' => 'admin.settings.homepage', 'match' => ['admin.settings.homepage']],
-              ['label' => 'Halaman Statis',      'route' => 'admin.pages', 'match' => ['admin.pages', 'admin.page.*']],
-              ['label' => 'Menu Navigasi',       'route' => 'admin.nav-menus', 'match' => ['admin.nav-menu*', 'admin.nav-submenu*']],
-              ['label' => 'Banner & Popup',      'route' => 'admin.promo-banners.index', 'match' => ['admin.promo-banners.*', 'admin.popup-banner.*']],
-              ['label' => 'Pengumuman',          'route' => 'admin.announcements', 'match' => ['admin.announcement*']],
-              ['label' => 'Blog',                'route' => 'admin.blog.index', 'match' => ['admin.blog.*']],
-              ['label' => 'Pusat Bantuan',       'route' => 'admin.knowledge-base.index', 'match' => ['admin.knowledge-base.*']],
-              ['label' => 'Template Notifikasi', 'route' => 'admin.notification-templates.index', 'match' => ['admin.notification-templates.*']],
+            // CMS menjadi satu pintu masuk; dashboard CMS mengelompokkan
+            // beranda, halaman, navigasi, promosi, artikel, dan notifikasi.
+            ['label' => 'CMS', 'icon' => 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z', 'module' => 'content', 'children' => [
+              ['label' => 'Pengelolaan CMS', 'route' => 'admin.cms.dashboard', 'match' => [
+                'admin.cms.*',
+                'admin.settings.homepage*',
+                'admin.pages',
+                'admin.page.*',
+                'admin.nav-menus',
+                'admin.nav-menu.*',
+                'admin.nav-submenus',
+                'admin.nav-submenu.*',
+                'admin.promo-banners.*',
+                'admin.popup-banner.*',
+                'admin.announcements',
+                'admin.announcement.*',
+                'admin.blog.*',
+                'admin.knowledge-base.*',
+                'admin.notification-templates.*',
+              ]],
             ]],
 
             ['label' => 'Sistem', 'icon' => 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09c0 .67.39 1.28 1 1.51.63.24 1.35.12 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.45.47-.57 1.19-.33 1.82.23.61.84 1 1.51 1H21a2 2 0 0 1 0 4h-.09c-.67 0-1.28.39-1.51 1Z', 'module' => 'system', 'children' => [
