@@ -1,8 +1,11 @@
 <?php
 
+use App\Support\PublicNotFoundRedirect;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -65,5 +68,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Situs publik: URL yang tidak ada (404) dikembalikan ke beranda.
+        // Halaman yang ada (menu, blog, CMS, dll.) tidak terpengaruh.
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if (PublicNotFoundRedirect::shouldRedirect($request)) {
+                return PublicNotFoundRedirect::response();
+            }
+        });
     })->create();

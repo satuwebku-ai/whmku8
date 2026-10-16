@@ -71,6 +71,7 @@ class PublicEditorialContentTest extends TestCase
             'views_count' => 1,
         ]);
 
-        $this->get(route('knowledge-base.show', 'panduan-internal'))->assertNotFound();
+        // Artikel non-publik tidak tampil; pengunjung dikembalikan ke beranda.
+        $this->get(route('knowledge-base.show', 'panduan-internal'))->assertRedirect(route('home'));
     }
 }

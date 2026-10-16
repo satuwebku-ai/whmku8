@@ -108,7 +108,8 @@ class PortalSubdomainRoutingTest extends TestCase
 
     public function test_cart_is_not_served_on_the_public_or_admin_hosts(): void
     {
-        $this->get('http://localhost/store/keranjang')->assertNotFound();
+        // Domain publik: URL yang tidak ada dikembalikan ke beranda.
+        $this->get('http://localhost/store/keranjang')->assertRedirect(route('home'));
         $this->get('http://admin.localhost/store/keranjang')->assertNotFound();
     }
 
