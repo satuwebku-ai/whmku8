@@ -76,7 +76,7 @@
                   Halaman — {{ $menu->page->title ?? '(halaman terhapus)' }}
                   @break
                 @default
-                  <i class="fa-solid fa-link" style="font-size:10px"></i> {{ $menu->url }}
+                  <i class="fa-solid fa-link" style="font-size:10px"></i> {{ $menu->target ? ($menu->destination_label ?? '(tujuan terhapus)') : $menu->url }}
               @endswitch
             @endif
           </p>

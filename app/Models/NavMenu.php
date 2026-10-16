@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Route as RouteFacade;
+use App\Support\LinkTargets;
 
 class NavMenu extends Model
 {
     protected $fillable = [
-        'parent_id', 'label', 'type', 'route_name', 'page_id', 'default_child_id', 'url',
+        'parent_id', 'label', 'type', 'route_name', 'page_id', 'default_child_id', 'url', 'target',
         'open_in_new_tab', 'is_active', 'sort_order',
     ];
 
@@ -138,10 +139,39 @@ class NavMenu extends Model
                 ? route('page.show', $this->page->slug)
                 : null,
 
-            'url' => $this->url ?: null,
+            // Tujuan katalog (jenis/kategori/produk) disimpan di kolom `target`
+            // sebagai referensi; url ketikan admin tetap di kolom `url`.
+            'url' => $this->target
+                ? LinkTargets::url($this->target)
+                : ($this->url ?: null),
 
             default => null,
         };
+    }
+
+    /**
+     * Nilai untuk dropdown "Tujuan" di form admin (lihat LinkTargets).
+     * Disusun dari kolom lama + `target`, jadi menu yang sudah ada otomatis
+     * terpilih tanpa migrasi data.
+     */
+    public function getLinkTargetAttribute(): string
+    {
+        if ($this->target) {
+            return $this->target;
+        }
+
+        return match ($this->type) {
+            'route' => $this->route_name ? 'route:' . $this->route_name : '',
+            'page'  => $this->page_id ? 'page:' . $this->page_id : '',
+            'url'   => $this->url ? LinkTargets::CUSTOM : '',
+            default => '',
+        };
+    }
+
+    /** Nama tujuan katalog untuk daftar admin; null bila bukan tujuan katalog atau sudah terhapus. */
+    public function getDestinationLabelAttribute(): ?string
+    {
+        return $this->target ? LinkTargets::label($this->target) : null;
     }
 
     /**
@@ -170,6 +200,7 @@ class NavMenu extends Model
         return match ($this->type) {
             'route' => self::routeMeta($this->route_name)['bi'] ?? 'bi-grid-1x2',
             'page' => 'bi-file-earmark-text',
+            'url' => $this->target ? 'bi-box-seam' : 'bi-link-45deg',
             default => 'bi-link-45deg',
         };
     }
@@ -180,6 +211,7 @@ class NavMenu extends Model
         return 'fa-solid ' . match ($this->type) {
             'route' => self::routeMeta($this->route_name)['fa'] ?? 'fa-table-cells-large',
             'page' => 'fa-file-lines',
+            'url' => $this->target ? 'fa-box' : 'fa-link',
             default => 'fa-link',
         };
     }
@@ -189,9 +221,11 @@ class NavMenu extends Model
         return match ($this->type) {
             'route' => self::routeMeta($this->route_name)['desc'] ?? 'Buka halaman',
             'page' => 'Halaman informasi',
-            'url' => ($host = parse_url((string) $this->url, PHP_URL_HOST))
-                ? preg_replace('/^www\./', '', $host)
-                : 'Tautan',
+            'url' => $this->target
+                ? (LinkTargets::description($this->target) ?: 'Lihat selengkapnya')
+                : (($host = parse_url((string) $this->url, PHP_URL_HOST))
+                    ? preg_replace('/^www\./', '', $host)
+                    : 'Tautan'),
             default => '',
         };
     }

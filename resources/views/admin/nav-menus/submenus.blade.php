@@ -88,7 +88,7 @@
                   {{ $child->page->title ?? '(halaman terhapus)' }}
                   @break
                 @default
-                  <i class="fa-solid fa-link" style="font-size:10px"></i> {{ $child->url }}
+                  <i class="fa-solid fa-link" style="font-size:10px"></i> {{ $child->target ? ($child->destination_label ?? '(tujuan terhapus)') : $child->url }}
               @endswitch
             </p>
           </div>

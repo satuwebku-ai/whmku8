@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CmsPage;
 use App\Models\NavMenu;
+use App\Support\LinkTargets;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,6 @@ class NavMenuController extends Controller
     public function create(): View
     {
         return view('admin.nav-menus.main-form', $this->formData(new NavMenu([
-            'type' => $this->requestedType(),
             'is_active' => true,
         ])));
     }
@@ -99,10 +99,8 @@ class NavMenuController extends Controller
         return view('admin.nav-menus.sub-form', [
             'menu' => new NavMenu([
                 'parent_id' => $parentId,
-                'type' => $this->requestedType(),
                 'is_active' => true,
             ]),
-            'pages' => $this->publishedPages(),
             'parentOptions' => $parentOptions,
         ]);
     }
@@ -126,7 +124,6 @@ class NavMenuController extends Controller
 
         return view('admin.nav-menus.sub-form', [
             'menu' => $navMenu,
-            'pages' => $this->publishedPages(),
             'parentOptions' => $this->parentOptions(),
         ]);
     }
@@ -227,19 +224,7 @@ class NavMenuController extends Controller
 
     private function formData(NavMenu $menu): array
     {
-        return [
-            'menu' => $menu,
-            'pages' => $this->publishedPages(),
-            // Hanya Menu Utama yang sudah tersimpan yang bisa punya
-            // Subnav untuk dipilih sebagai tujuan langsung -- menu baru
-            // belum bisa punya Subnav sama sekali.
-            'children' => $menu->exists ? $menu->allChildren : collect(),
-        ];
-    }
-
-    private function publishedPages()
-    {
-        return CmsPage::published()->orderBy('title')->get();
+        return ['menu' => $menu];
     }
 
     private function parentOptions()
@@ -255,18 +240,6 @@ class NavMenuController extends Controller
         return ((int) NavMenu::where('parent_id', $parentId)->max('sort_order')) + 1;
     }
 
-    private function requestedType(): string
-    {
-        // "Halaman Bawaan" (built-in route seperti Domain Premium, Cek
-        // Domain, dst) jauh lebih sering dipakai daripada Halaman CMS,
-        // jadi jadikan itu default tab yang terbuka -- supaya admin
-        // tidak salah pilih tab lalu kena error "belum ada halaman
-        // yang diterbitkan" padahal maksudnya mau pilih halaman bawaan.
-        return in_array(request('type'), ['route', 'page', 'url'], true)
-            ? request('type')
-            : 'route';
-    }
-
     private function validated(Request $request, bool $submenu, ?NavMenu $navMenu = null): array
     {
         // Menu Utama yang sudah punya Subnav boleh diset supaya klik-nya
@@ -274,6 +247,16 @@ class NavMenuController extends Controller
         // ini dipilih, field "Tautan Menuju" (route/page/url) di bawahnya
         // tidak dipakai -- tujuannya diambil dari Subnav yang dipilih.
         $isDirectChildMode = ! $submenu && $request->input('link_mode') === 'child';
+
+        // Form memakai SATU dropdown "Tujuan" (field `target`, lihat LinkTargets).
+        // Di sini nilainya diuraikan ke kolom lama (type/route_name/page_id) dan
+        // `target_ref` (khusus tujuan katalog), sehingga aturan di bawah tetap sama.
+        if (! $isDirectChildMode) {
+            $request->merge($this->decodeTarget((string) $request->input('target')));
+        }
+
+        // Alamat ketikan hanya wajib bila tujuannya memang "Tulis sendiri".
+        $requiresUrl = $request->input('type') === 'url' && blank($request->input('target_ref'));
 
         $rules = [
             'label' => ['required', 'string', 'max:50'],
@@ -284,7 +267,30 @@ class NavMenuController extends Controller
                 'nullable',
                 Rule::exists('cms_contents', 'id')->where('type', CmsPage::CONTENT_TYPE),
             ],
-            'url' => [$isDirectChildMode ? 'nullable' : 'required_if:type,url', 'nullable', 'url', 'max:255'],
+            'url' => [
+                $isDirectChildMode || ! $requiresUrl ? 'nullable' : 'required',
+                'nullable',
+                'string',
+                'max:255',
+                // https://..., mailto:, tel:, atau path di situs ini (/hosting).
+                // "//host" dan "/\\host" ditolak karena dibaca browser sebagai situs lain.
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (filled($value) && ! preg_match('#^(/(?![/\\\\])|https?://|mailto:|tel:)#i', (string) $value)) {
+                        $fail('Awali dengan https:// untuk situs luar, atau / untuk halaman di situs ini (contoh: /hosting).');
+                    }
+                },
+            ],
+            // Tujuan katalog: harus menunjuk jenis/kategori/produk yang masih aktif.
+            'target_ref' => [
+                'nullable',
+                'string',
+                'max:40',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (filled($value) && LinkTargets::find((string) $value) === null) {
+                        $fail('Tujuan yang dipilih tidak ditemukan atau sudah tidak aktif.');
+                    }
+                },
+            ],
             'open_in_new_tab' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
         ];
@@ -300,8 +306,7 @@ class NavMenuController extends Controller
             'type.required' => 'Pilih tujuan tautan menu ini.',
             'route_name.required_if' => 'Pilih salah satu halaman bawaan.',
             'page_id.required_if' => 'Pilih salah satu halaman.',
-            'url.required_if' => 'Isi alamat tautannya.',
-            'url.url' => 'Format URL tidak valid — awali dengan https://',
+            'url.required' => 'Isi alamat tautannya.',
             'default_child_id.required' => 'Pilih Subnav tujuan.',
         ]);
 
@@ -335,21 +340,58 @@ class NavMenuController extends Controller
             $data['route_name'] = null;
             $data['page_id'] = null;
             $data['url'] = null;
+            $data['target'] = null;
             $data['default_child_id'] = (int) $data['default_child_id'];
         } else {
             // Hanya simpan field sesuai jenis tautan yang dipilih.
-            $data['route_name'] = $data['type'] === 'route' ? $data['route_name'] : null;
-            $data['page_id'] = $data['type'] === 'page' ? $data['page_id'] : null;
-            $data['url'] = $data['type'] === 'url' ? $data['url'] : null;
+            $isCatalog = $data['type'] === 'url' && filled($data['target_ref'] ?? null);
+
+            $data['route_name'] = $data['type'] === 'route' ? ($data['route_name'] ?? null) : null;
+            $data['page_id'] = $data['type'] === 'page' ? ($data['page_id'] ?? null) : null;
+            $data['url'] = ($data['type'] === 'url' && ! $isCatalog) ? ($data['url'] ?? null) : null;
+            $data['target'] = $isCatalog ? $data['target_ref'] : null;
 
             if (! $submenu) {
                 $data['default_child_id'] = null;
             }
         }
 
+        unset($data['target_ref']);
+
         $data['open_in_new_tab'] = $request->boolean('open_in_new_tab');
         $data['is_active'] = $request->boolean('is_active', true);
 
         return $data;
+    }
+
+    /**
+     * Uraikan nilai dropdown "Tujuan" ke field yang dipakai validasi/penyimpanan.
+     *
+     *   route:blog.index -> type=route, route_name=blog.index
+     *   page:12          -> type=page,  page_id=12
+     *   custom           -> type=url    (alamat dari field `url`)
+     *   type:3 / category:5 / product:9 -> type=url, target_ref=<nilainya>
+     *
+     * Nilai kosong/tak dikenal menghasilkan type=null, sehingga validasi
+     * "Pilih tujuan tautan menu ini" yang berbicara.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeTarget(string $value): array
+    {
+        $none = ['type' => null, 'route_name' => null, 'page_id' => null, 'target_ref' => null];
+
+        if ($value === LinkTargets::CUSTOM) {
+            return array_merge($none, ['type' => 'url']);
+        }
+
+        [$kind, $id] = array_pad(explode(':', $value, 2), 2, null);
+
+        return match ($kind) {
+            'route' => array_merge($none, ['type' => 'route', 'route_name' => $id]),
+            'page' => array_merge($none, ['type' => 'page', 'page_id' => $id]),
+            'type', 'category', 'product' => array_merge($none, ['type' => 'url', 'target_ref' => $value]),
+            default => $none,
+        };
     }
 }
