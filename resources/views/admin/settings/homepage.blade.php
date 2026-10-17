@@ -20,8 +20,8 @@
 
     <h2 class="small fw-bold text-dark mb-1">Susunan Beranda</h2>
     <p class="text-muted mb-3" style="font-size:12px">
-      Seret <i class="fa-solid fa-grip-vertical" style="font-size:10px"></i> untuk mengubah urutan,
-      matikan sakelar untuk menyembunyikan. Section yang datanya masih kosong otomatis tidak tampil
+      Seret <i class="fa-solid fa-grip-vertical" style="font-size:10px"></i> atau pakai tombol panah untuk mengubah urutan,
+      matikan sakelar untuk menyembunyikan. <b>Klik "Simpan Pengaturan" agar perubahan tampil di beranda.</b> Section yang datanya masih kosong otomatis tidak tampil
       walau sakelarnya menyala.
     </p>
 
@@ -42,6 +42,10 @@
               @endif
             </span>
           </span>
+          <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Pindah posisi">
+            <button type="button" class="btn btn-outline-secondary py-0 px-2" data-move="-1" aria-label="Naik"><i class="fa-solid fa-chevron-up" style="font-size:10px"></i></button>
+            <button type="button" class="btn btn-outline-secondary py-0 px-2" data-move="1" aria-label="Turun"><i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+          </div>
           <div class="form-check form-switch m-0">
             <input type="checkbox" role="switch" class="form-check-input"
                    name="home_show_{{ $key }}" value="1"
@@ -140,72 +144,87 @@
 
     <h2 class="small fw-bold text-dark mb-1">Teks Section Beranda</h2>
     <p class="text-muted mb-3" style="font-size:12px">
-      Ubah teks hero, Keunggulan, Langkah, dan Ajakan Daftar tanpa menyentuh kode. Kosongkan baris untuk menghapusnya;
-      ikon mengikuti urutan baris. Kosongkan semua atau samakan dengan bawaan untuk kembali ke teks bawaan tema.
+      Ubah teks tanpa menyentuh kode. Buka tiap bagian di bawah. Baris yang dikosongkan akan dihapus, dan jika semuanya
+      dikosongkan atau sama dengan bawaan, tema kembali memakai teks bawaannya.
     </p>
 
-    <h3 class="fw-bold text-dark mb-2" style="font-size:13px">Teks Hero</h3>
-    <div class="mb-4">
-      <input type="text" name="hero_text" maxlength="200" class="form-control form-control-sm"
-             placeholder="Kosongkan untuk memakai teks bawaan tema"
-             value="{{ old('hero_text', Setting::get('home_hero_text')) }}">
-      <p class="text-muted mt-1 mb-0" style="font-size:10px">Paragraf di bawah judul beranda. Judulnya diatur lewat Tagline situs.</p>
-    </div>
+    @php
+      $field = 'form-control form-control-sm';
+      $counter = 'text-muted text-end mt-1 mb-0';
+    @endphp
 
-    <h3 class="fw-bold text-dark mb-2" style="font-size:13px">Keunggulan <span class="text-muted fw-normal">(maks. {{ \App\Support\HomeContent::MAX_BENEFITS }})</span></h3>
-    <div class="d-flex flex-column gap-2 mb-4">
-      @foreach ($benefitRows as $i => $row)
-        <div class="row g-2">
-          <div class="col-sm-4">
-            <input type="text" name="benefits[{{ $i }}][title]" maxlength="60" placeholder="Judul"
-                   value="{{ $row['title'] ?? '' }}" class="form-control form-control-sm">
+    <div class="d-flex flex-column gap-2">
+
+      <details class="rounded-3 border" open>
+        <summary class="px-3 py-2 fw-semibold text-dark" style="font-size:13px;cursor:pointer">1. Hero <span class="text-muted fw-normal">- paragraf di bawah judul</span></summary>
+        <div class="px-3 pb-3">
+          <input type="text" name="hero_text" maxlength="200" class="{{ $field }}"
+                 placeholder="Kosongkan untuk memakai teks bawaan tema"
+                 value="{{ old('hero_text', Setting::get('home_hero_text')) }}">
+          <p class="text-muted mt-1 mb-0" style="font-size:10px">Maks. 200 karakter. Judul hero diatur lewat Tagline situs di Pengaturan Umum.</p>
+        </div>
+      </details>
+
+      <details class="rounded-3 border">
+        <summary class="px-3 py-2 fw-semibold text-dark" style="font-size:13px;cursor:pointer">2. Keunggulan <span class="text-muted fw-normal">- maks. {{ \App\Support\HomeContent::MAX_BENEFITS }} baris</span></summary>
+        <div class="px-3 pb-3 d-flex flex-column gap-2">
+          @foreach ($benefitRows as $i => $row)
+            <div class="rounded-3 p-2" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge badge-soft-secondary" style="font-size:10px">{{ $loop->iteration }}</span>
+                <input type="text" name="benefits[{{ $i }}][title]" maxlength="60" placeholder="Judul"
+                       value="{{ $row['title'] ?? '' }}" class="{{ $field }} fw-medium">
+              </div>
+              <input type="text" name="benefits[{{ $i }}][desc]" maxlength="200" placeholder="Deskripsi singkat"
+                     value="{{ $row['desc'] ?? '' }}" class="{{ $field }}">
+            </div>
+          @endforeach
+          <p class="{{ $counter }}" style="font-size:10px">Judul maks. 60 karakter, deskripsi maks. 200. Ikon mengikuti urutan baris.</p>
+        </div>
+      </details>
+
+      <details class="rounded-3 border">
+        <summary class="px-3 py-2 fw-semibold text-dark" style="font-size:13px;cursor:pointer">3. Langkah Mulai <span class="text-muted fw-normal">- tema NamaHost, maks. {{ \App\Support\HomeContent::MAX_STEPS }}</span></summary>
+        <div class="px-3 pb-3 d-flex flex-column gap-2">
+          @foreach ($stepRows as $i => $row)
+            <div class="rounded-3 p-2" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge badge-soft-secondary" style="font-size:10px">{{ $loop->iteration }}</span>
+                <input type="text" name="steps[{{ $i }}][title]" maxlength="60" placeholder="Judul langkah"
+                       value="{{ $row['title'] ?? '' }}" class="{{ $field }} fw-medium">
+              </div>
+              <input type="text" name="steps[{{ $i }}][desc]" maxlength="200" placeholder="Deskripsi singkat"
+                     value="{{ $row['desc'] ?? '' }}" class="{{ $field }}">
+            </div>
+          @endforeach
+          <p class="{{ $counter }}" style="font-size:10px">Tema lain tidak menampilkan bagian ini.</p>
+        </div>
+      </details>
+
+      <details class="rounded-3 border">
+        <summary class="px-3 py-2 fw-semibold text-dark" style="font-size:13px;cursor:pointer">4. Ajakan Daftar</summary>
+        <div class="px-3 pb-3 row g-2">
+          <div class="col-12">
+            <label class="form-label small fw-medium text-dark mb-1">Judul</label>
+            <input type="text" name="cta[title]" maxlength="100" value="{{ old('cta.title', $storedCta['title']) }}" class="{{ $field }}">
           </div>
-          <div class="col-sm-8">
-            <input type="text" name="benefits[{{ $i }}][desc]" maxlength="200" placeholder="Deskripsi singkat"
-                   value="{{ $row['desc'] ?? '' }}" class="form-control form-control-sm">
+          <div class="col-12">
+            <label class="form-label small fw-medium text-dark mb-1">Teks</label>
+            <input type="text" name="cta[text]" maxlength="200" value="{{ old('cta.text', $storedCta['text']) }}" class="{{ $field }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small fw-medium text-dark mb-1">Tombol utama</label>
+            <input type="text" name="cta[primary]" maxlength="40" value="{{ old('cta.primary', $storedCta['primary']) }}" class="{{ $field }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small fw-medium text-dark mb-1">Tombol kedua</label>
+            <input type="text" name="cta[secondary]" maxlength="40" value="{{ old('cta.secondary', $storedCta['secondary']) }}" class="{{ $field }}">
           </div>
         </div>
-      @endforeach
+      </details>
     </div>
 
-    <h3 class="fw-bold text-dark mb-1 pt-3 border-top" style="font-size:13px">Langkah Mulai <span class="text-muted fw-normal">(tema NamaHost, maks. {{ \App\Support\HomeContent::MAX_STEPS }})</span></h3>
-    <p class="text-muted mb-2" style="font-size:10px">Tema lain tidak menampilkan bagian ini.</p>
-    <div class="d-flex flex-column gap-2 mb-4">
-      @foreach ($stepRows as $i => $row)
-        <div class="row g-2">
-          <div class="col-sm-4">
-            <input type="text" name="steps[{{ $i }}][title]" maxlength="60" placeholder="Judul langkah"
-                   value="{{ $row['title'] ?? '' }}" class="form-control form-control-sm">
-          </div>
-          <div class="col-sm-8">
-            <input type="text" name="steps[{{ $i }}][desc]" maxlength="200" placeholder="Deskripsi singkat"
-                   value="{{ $row['desc'] ?? '' }}" class="form-control form-control-sm">
-          </div>
-        </div>
-      @endforeach
-    </div>
-
-    <h3 class="fw-bold text-dark mb-2 pt-3 border-top" style="font-size:13px">Ajakan Daftar</h3>
-    <div class="row g-2 mb-4">
-      <div class="col-12">
-        <label class="form-label small fw-medium text-dark">Judul</label>
-        <input type="text" name="cta[title]" maxlength="100" value="{{ old('cta.title', $storedCta['title']) }}" class="form-control form-control-sm">
-      </div>
-      <div class="col-12">
-        <label class="form-label small fw-medium text-dark">Teks</label>
-        <input type="text" name="cta[text]" maxlength="200" value="{{ old('cta.text', $storedCta['text']) }}" class="form-control form-control-sm">
-      </div>
-      <div class="col-sm-6">
-        <label class="form-label small fw-medium text-dark">Tombol utama</label>
-        <input type="text" name="cta[primary]" maxlength="40" value="{{ old('cta.primary', $storedCta['primary']) }}" class="form-control form-control-sm">
-      </div>
-      <div class="col-sm-6">
-        <label class="form-label small fw-medium text-dark">Tombol kedua</label>
-        <input type="text" name="cta[secondary]" maxlength="40" value="{{ old('cta.secondary', $storedCta['secondary']) }}" class="form-control form-control-sm">
-      </div>
-    </div>
-
-    <button type="submit" class="btn btn-primary btn-sm" style="width:fit-content"><i class="fa-solid fa-check" style="font-size:11px"></i> Simpan Teks</button>
+    <button type="submit" class="btn btn-primary btn-sm mt-3" style="width:fit-content"><i class="fa-solid fa-check" style="font-size:11px"></i> Simpan Teks</button>
   </form>
 
   <script @nonce>
@@ -228,6 +247,25 @@
         });
         orderInput.value = keys.join(',');
       }
+
+      list.querySelectorAll('[data-move]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const row = btn.closest('[data-key]');
+          const dir = parseInt(btn.dataset.move, 10);
+
+          if (dir < 0 && row.previousElementSibling) {
+            list.insertBefore(row, row.previousElementSibling);
+          } else if (dir > 0 && row.nextElementSibling) {
+            list.insertBefore(row.nextElementSibling, row);
+          }
+
+          sync();
+        });
+      });
+
+      // Jaga-jaga: urutan selalu ditulis ulang tepat sebelum form dikirim.
+      const form = list.closest('form');
+      if (form) form.addEventListener('submit', sync);
 
       list.querySelectorAll('[draggable="true"]').forEach(function (row) {
         row.addEventListener('dragstart', function () {

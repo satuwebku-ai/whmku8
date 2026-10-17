@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             AdminSeeder::class,
             ProductCatalogSeeder::class,
+            CmsPageSeeder::class,
+            CmsPostSeeder::class,
+            KnowledgeBaseSeeder::class,
         ]);
     }
 }

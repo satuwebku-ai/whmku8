@@ -5,6 +5,11 @@ Seeder yang disediakan:
 - `RoleSeeder`: membuat role RBAC dan permission per modul.
 - `AdminSeeder`: membuat akun superadmin pertama jika email belum terdaftar.
 - `ProductCatalogSeeder`: membuat jenis produk, kategori, 5 contoh paket hosting, dan 3 contoh paket VPS serta baris harga siklus.
+- `CmsPageSeeder`: 6 halaman statis (Tentang Kami, Kontak, Syarat & Ketentuan, Kebijakan Privasi, Pengembalian Dana, Penggunaan Wajar), otomatis tampil di menu footer.
+- `CmsPostSeeder`: 4 kategori dan 6 artikel blog.
+- `KnowledgeBaseSeeder`: 5 topik dan 10 artikel Pusat Bantuan.
+
+Seeder konten memakai slug sebagai identitas dan tidak menimpa isi yang sudah Anda edit di CMS.
 
 ## Jalankan
 
@@ -14,6 +19,11 @@ php artisan migrate --seed
 
 # Atau setelah migrasi sudah dijalankan:
 php artisan db:seed
+
+# Jalankan hanya konten CMS:
+php artisan db:seed --class=CmsPageSeeder
+php artisan db:seed --class=CmsPostSeeder
+php artisan db:seed --class=KnowledgeBaseSeeder
 
 # Jalankan hanya katalog produk:
 php artisan db:seed --class=ProductCatalogSeeder
