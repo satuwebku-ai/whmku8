@@ -10,6 +10,24 @@ use Illuminate\Support\Facades\Route;
 | Portal routes remain in separate modules and are served only from their
 | configured subdomains. Legacy /admin and /client URLs redirect there.
 */
+/*
+|--------------------------------------------------------------------------
+| www -> domain utama
+|--------------------------------------------------------------------------
+| www.<domain publik> tidak punya route sendiri; tanpa blok ini semua URL
+| di sana (termasuk /admin) berakhir 404 mentah. 308 menjaga method & query.
+*/
+Route::domain('www.'.config('portal_domains.public'))->group(function () {
+    Route::any('{path?}', function (Request $request, ?string $path = null) {
+        $target = 'https://'.config('portal_domains.public').'/'.ltrim((string) $path, '/');
+        if ($request->getQueryString()) {
+            $target .= '?'.$request->getQueryString();
+        }
+
+        return redirect()->away($target, 308);
+    })->where('path', '.*');
+});
+
 Route::domain(config('portal_domains.admin'))
     ->name('admin.')
     ->group(base_path('routes/admin.php'));
@@ -90,4 +108,19 @@ Route::domain(config('portal_domains.public'))->middleware(\App\Http\Middleware\
     Route::get('keranjang', fn () => redirect()->away(route('cart.index'), 301));
 
     require base_path('routes/public.php');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Host tidak dikenal (IP server, alias domain, domain lama, dll.)
+|--------------------------------------------------------------------------
+| Route::fallback hanya jalan kalau tidak ada route lain yang cocok, jadi
+| tidak mengganggu host publik/admin/member di atas. Pengunjung yang masuk
+| lewat host asing (mis. http://IP-SERVER/admin) dikembalikan ke beranda.
+*/
+Route::fallback(static function (Request $request) {
+    // Cegah loop: kalau host-nya sudah host publik, jangan dialihkan ke dirinya sendiri.
+    abort_if(strtolower($request->getHost()) === strtolower((string) config('portal_domains.public')), 404);
+
+    return redirect()->away('https://'.config('portal_domains.public').'/', 302);
 });
