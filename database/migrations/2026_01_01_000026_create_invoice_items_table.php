@@ -13,6 +13,11 @@ return new class extends Migration
      * tertagih dalam SATU invoice. invoice_items menampung rincian per item;
      * invoices.order_id tetap ada untuk kompatibilitas invoice lama yang
      * hanya py 1 order.
+     *
+     * Setiap baris juga menyimpan LAYANAN yang ditagih (domain/hosting) dan jenis
+     * tagihannya (service_type, service_id, item_type), seperti relid di WHMCS,
+     * supaya invoice lama bisa dilacak ke layanannya. Untuk mengisi baris lama:
+     * php artisan lumora:backfill-invoice-services
      */
     public function up(): void
     {
@@ -20,10 +25,14 @@ return new class extends Migration
             $table->id();
             $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
             $table->foreignId('order_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('service_type', 20)->nullable();
+            $table->unsignedBigInteger('service_id')->nullable();
+            $table->string('item_type', 30)->nullable();
             $table->string('description');
             $table->decimal('amount', 12, 2)->default(0);
             $table->timestamps();
             $table->index(['invoice_id', 'order_id'], 'invoice_items_invoice_order_index');
+            $table->index(['service_type', 'service_id'], 'invoice_items_service_index');
         });
     }
 

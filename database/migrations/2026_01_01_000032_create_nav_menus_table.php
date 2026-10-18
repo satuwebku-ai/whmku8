@@ -27,6 +27,10 @@ return new class extends Migration
             $table->foreignId('page_id')->nullable()->constrained('cms_contents')->nullOnDelete();
             $table->string('url')->nullable();
 
+            // Tujuan katalog (type:/category:/product:). Halaman CMS, halaman sistem,
+            // dan URL ketikan tetap di kolomnya sendiri (page_id, route_name, url).
+            $table->string('target', 40)->nullable();
+
             $table->boolean('open_in_new_tab')->default(false);
             $table->boolean('is_active')->default(true);
             $table->unsignedInteger('sort_order')->default(0);
