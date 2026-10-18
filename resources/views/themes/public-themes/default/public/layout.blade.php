@@ -175,19 +175,7 @@
     @endif
   </main>
 
-  <footer id="publicFooter">
-    <div class="container" style="max-width:72rem">
-      @if ($footerPages->isNotEmpty())
-        <nav class="d-flex flex-wrap gap-3 mb-3">
-          @foreach ($footerPages as $fp)
-            <a href="{{ route('page.show', $fp->slug) }}">{{ $fp->title }}</a>
-          @endforeach
-        </nav>
-      @endif
-      @include('public.partials.content-links')
-      <p class="text-muted mb-0" style="font-size:14px">{{ Setting::get('footer_text') ?: '© ' . date('Y') . ' ' . $siteName . '. Semua hak dilindungi.' }}</p>
-    </div>
-  </footer>
+  @include('public.partials.footer')
 
   <script src="{{ asset('assets/js/vendor/bootstrap-5.3.8.bundle.min.js') }}"></script>
   @include('public.partials.livechat')

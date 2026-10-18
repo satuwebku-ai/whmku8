@@ -19,6 +19,8 @@
        'route' => 'admin.blog.index', 'cta' => 'Kelola blog', 'count' => $counts['posts'] . ' artikel, ' . $counts['categories'] . ' kategori'],
       ['label' => 'Pusat Bantuan', 'desc' => 'Panduan dan jawaban umum untuk pelanggan.',
        'route' => 'admin.knowledge-base.index', 'cta' => 'Pusat bantuan', 'count' => null],
+      ['label' => 'Footer', 'desc' => 'Ukuran footer, tata letak, serta urutan dan tampil/sembunyi menu footer.',
+       'route' => 'admin.settings.footer', 'cta' => 'Atur footer', 'count' => null],
       ['label' => 'Notifikasi', 'desc' => 'Isi email dan WhatsApp transaksional yang dikirim aplikasi.',
        'route' => 'admin.notification-templates.index', 'cta' => 'Template notifikasi', 'count' => null],
     ];

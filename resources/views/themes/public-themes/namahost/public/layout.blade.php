@@ -138,43 +138,7 @@
     @endif
   </main>
 
-  <footer id="publicFooter">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-md-5">
-          <div class="text-white fw-bold fs-5 mb-2 d-flex align-items-center gap-2">
-            <span class="brand-mark"><i class="bi bi-hdd-network"></i></span>{{ $siteName }}
-          </div>
-          @if ($tagline)
-            <p class="mb-0">{{ $tagline }}</p>
-          @endif
-        </div>
-        <div class="col-6 col-md-3">
-          <div class="ft-title">Produk</div>
-          <ul class="list-unstyled mb-0">
-            <li><a href="{{ route('catalog.index') }}">Semua paket</a></li>
-             <li><a href="{{ route('license.index') }}">Lisensi</a></li>
-            <li><a href="{{ route('domain.search') }}">Cari domain</a></li>
-            <li><a href="{{ route('domains.transfer') }}">Transfer domain</a></li>
-          </ul>
-        </div>
-        <div class="col-6 col-md-4">
-          <div class="ft-title">Akun &amp; informasi</div>
-          <ul class="list-unstyled mb-0">
-            <li><a href="{{ route('client.login') }}">Area klien</a></li>
-            <li><a href="{{ route('client.register') }}">Daftar</a></li>
-            @foreach ($footerPages as $fp)
-              <li><a href="{{ route('page.show', $fp->slug) }}">{{ $fp->title }}</a></li>
-            @endforeach
-            <li><a href="{{ route('blog.index') }}">Blog</a></li>
-            <li><a href="{{ route('knowledge-base.index') }}">Pusat Bantuan</a></li>
-          </ul>
-        </div>
-      </div>
-      <hr class="my-4">
-      <small>{{ Setting::get('footer_text') ?: '© ' . date('Y') . ' ' . $siteName . '. Seluruh hak dilindungi.' }}</small>
-    </div>
-  </footer>
+  @include('public.partials.footer')
 
   <script src="{{ asset('assets/js/vendor/bootstrap-5.3.8.bundle.min.js') }}"></script>
   @include('public.partials.livechat')

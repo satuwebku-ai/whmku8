@@ -26,11 +26,12 @@
     ],
     'promo' => [
       'label' => 'Promosi', 'route' => 'admin.promo-banners.index',
-      'match' => ['admin.promo-banners.*', 'admin.popup-banner.*', 'admin.announcements', 'admin.announcement.*'],
+      'match' => ['admin.promo-banners.*', 'admin.popup-banner.*', 'admin.announcements', 'admin.announcement.*', 'admin.settings.client-notice*'],
       'subs' => [
         ['label' => 'Banner Promo', 'route' => 'admin.promo-banners.index', 'match' => ['admin.promo-banners.*']],
         ['label' => 'Popup', 'route' => 'admin.popup-banner.edit', 'match' => ['admin.popup-banner.*']],
         ['label' => 'Pengumuman', 'route' => 'admin.announcements', 'match' => ['admin.announcements', 'admin.announcement.*']],
+        ['label' => 'Area Klien', 'route' => 'admin.settings.client-notice', 'match' => ['admin.settings.client-notice*']],
       ],
     ],
     'blog' => [
@@ -48,6 +49,10 @@
         ['label' => 'Panduan', 'route' => 'admin.knowledge-base.index', 'match' => ['admin.knowledge-base.*'], 'except' => ['admin.knowledge-base.categories*']],
         ['label' => 'Kategori', 'route' => 'admin.knowledge-base.categories', 'match' => ['admin.knowledge-base.categories*']],
       ],
+    ],
+    'footer' => [
+      'label' => 'Footer', 'route' => 'admin.settings.footer',
+      'match' => ['admin.settings.footer*'],
     ],
     'notif' => [
       'label' => 'Notifikasi', 'route' => 'admin.notification-templates.index',

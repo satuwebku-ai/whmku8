@@ -5,6 +5,15 @@
 
     RewriteEngine On
 
+    # Situs publik: alamat portal/login dikembalikan ke beranda, dan www dialihkan ke domain utama.
+    # Berlaku untuk satucloudhosting.com dan www.satucloudhosting.com saja; subdomain
+    # pengelola/member tidak tersentuh. Ganti nama domain di bawah bila domain Anda berbeda.
+    RewriteCond %{HTTP_HOST} ^(www\.)?satucloudhosting\.com(:\d+)?$ [NC]
+    RewriteRule ^(admin|client|login|register|dashboard)(/.*)?$ https://satucloudhosting.com/ [R=302,L]
+
+    RewriteCond %{HTTP_HOST} ^www\.satucloudhosting\.com(:\d+)?$ [NC]
+    RewriteRule ^ https://satucloudhosting.com%{REQUEST_URI} [R=301,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

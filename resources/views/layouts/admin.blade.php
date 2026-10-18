@@ -161,7 +161,7 @@
               // Pengaturan = semua halaman bertab di admin/settings, termasuk
               // Trafik AI, cPanel Aplikasi & Cron Jobs (tab-nya sama, rutenya
               // beda). Halaman Depan dikecualikan: sekarang milik "Situs Publik".
-              ['label' => 'Pengaturan',    'route' => 'admin.settings.index', 'match' => ['admin.settings.*', 'admin.ai-usage.*', 'admin.self-cpanel.*', 'admin.cron.*'], 'except' => ['admin.settings.homepage']],
+              ['label' => 'Pengaturan',    'route' => 'admin.settings.index', 'match' => ['admin.settings.*', 'admin.ai-usage.*', 'admin.self-cpanel.*', 'admin.cron.*'], 'except' => ['admin.settings.homepage', 'admin.settings.footer*', 'admin.settings.client-notice*']],
             ]],
           ];
 

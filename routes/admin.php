@@ -533,6 +533,10 @@ Route::middleware(['admin', 'check.status'])->group(function () {
             Route::get('homepage', 'homepage')->name('homepage');
             Route::post('homepage', 'updateHomepage')->name('homepage.update');
             Route::post('homepage/content', 'updateHomepageContent')->name('homepage.content.update');
+            Route::get('client-notice', 'clientNotice')->name('client-notice');
+            Route::post('client-notice', 'updateClientNotice')->name('client-notice.update');
+            Route::get('footer', 'footer')->name('footer');
+            Route::post('footer', 'updateFooter')->name('footer.update');
         });
 
         // ── CMS: Banner Promo ──

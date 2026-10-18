@@ -339,6 +339,74 @@ class SettingController extends Controller
         return view('admin.settings.homepage', compact('banners', 'sectionMeta', 'order'));
     }
 
+    public function clientNotice(): View
+    {
+        return view('admin.settings.client-notice', [
+            'ticker' => \App\Support\ClientNotice::tickerEnabled(),
+            'modal' => \App\Support\ClientNotice::modalEnabled(),
+            'banner' => \App\Support\ClientNotice::bannerEnabled(),
+            'speed' => \App\Support\ClientNotice::speed(),
+            'days' => \App\Support\ClientNotice::windowDays(),
+            'activeCount' => \App\Support\ClientNotice::announcements(50)->count(),
+            'bannerCount' => \App\Models\PromoBanner::query()->live()->forPage('client')->count(),
+        ]);
+    }
+
+    public function updateClientNotice(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'client_ticker_speed' => ['required', 'in:'.implode(',', array_keys(\App\Support\ClientNotice::SPEEDS))],
+            'client_notice_days'  => ['required', 'integer', 'min:0', 'max:365'],
+        ]);
+
+        foreach (['client_ticker_enabled', 'client_modal_enabled', 'client_banner_enabled'] as $key) {
+            $data[$key] = $request->boolean($key) ? '1' : '0';
+        }
+
+        Setting::putMany($data, 'general');
+
+        return back()->with('success', 'Pengaturan pengumuman area klien berhasil disimpan.');
+    }
+
+    public function footer(): View
+    {
+        return view('admin.settings.footer', [
+            'order' => \App\Support\FooterConfig::order(),
+            'blocks' => \App\Support\FooterConfig::BLOCKS,
+            'size' => \App\Support\FooterConfig::size(),
+            'layout' => \App\Support\FooterConfig::layout(),
+        ]);
+    }
+
+    public function updateFooter(Request $request): RedirectResponse
+    {
+        $keys = array_keys(\App\Support\FooterConfig::BLOCKS);
+
+        $data = $request->validate([
+            'footer_size'   => ['required', 'in:'.implode(',', array_keys(\App\Support\FooterConfig::SIZES))],
+            'footer_layout' => ['required', 'in:'.implode(',', array_keys(\App\Support\FooterConfig::LAYOUTS))],
+            'footer_order'  => ['nullable', 'string'],
+        ]);
+
+        // Pola sama dengan susunan beranda: urutan dikirim sebagai daftar dipisah koma,
+        // disaring ke blok yang dikenal, blok yang hilang ditambahkan di belakang.
+        $order = array_values(array_intersect(
+            array_filter(array_map('trim', explode(',', (string) ($data['footer_order'] ?? '')))),
+            $keys
+        ));
+        $order = array_values(array_unique(array_merge($order, $keys)));
+
+        foreach ($keys as $key) {
+            $data['footer_show_'.$key] = $request->boolean('footer_show_'.$key) ? '1' : '0';
+        }
+
+        $data['footer_order'] = json_encode($order);
+
+        Setting::putMany($data, 'general');
+
+        return back()->with('success', 'Pengaturan footer berhasil disimpan.');
+    }
+
     public function updateHomepage(Request $request): RedirectResponse
     {
         $sectionKeys = ['domain', 'banner', 'benefits', 'hosting', 'vps', 'categories', 'announcements', 'cta'];

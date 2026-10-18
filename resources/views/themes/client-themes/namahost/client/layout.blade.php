@@ -51,6 +51,9 @@
     </div>
   @endif
 
+  {{-- Pita info pengumuman (teks berjalan) --}}
+  @include('client.partials.notice-ticker')
+
   @if ($isStore)
     @include('partials.store-topbar')
   @endif
@@ -141,6 +144,10 @@
     {{-- Konten --}}
     <main class="flex-grow-1 p-3 p-lg-4 min-w-0">
       @include('client.partials.toast')
+
+      @if (request()->routeIs('client.dashboard', 'client.dashboard.alt'))
+        @include('client.partials.notice-banners')
+      @endif
 
       @yield('content')
     </main>
@@ -251,6 +258,7 @@
     })();
   </script>
 
+  @include('client.partials.notice-modal')
   @include('public.partials.livechat')
 @include('partials.csp-actions')
 </body>

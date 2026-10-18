@@ -15,10 +15,11 @@ class PortalSubdomainRoutingTest extends TestCase
             ->assertRedirect(route('home'));
     }
 
-    public function test_old_admin_links_other_than_login_move_to_the_admin_subdomain(): void
+    public function test_admin_and_client_paths_on_the_public_host_return_to_the_homepage(): void
     {
-        $this->get('http://localhost/admin/dashboard?tab=activity')
-            ->assertRedirect('https://admin.localhost/dashboard?tab=activity');
+        foreach (['/admin', '/admin/', '/admin/dashboard?tab=activity', '/client', '/client/login', '/login', '/register', '/dashboard'] as $path) {
+            $this->get('http://localhost'.$path)->assertRedirect(route('home'));
+        }
     }
 
     public function test_admin_login_is_available_on_the_admin_subdomain_root_path(): void
@@ -31,12 +32,6 @@ class PortalSubdomainRoutingTest extends TestCase
     {
         $this->get(route('client.login'))
             ->assertOk();
-    }
-
-    public function test_old_client_login_url_moves_to_the_member_subdomain(): void
-    {
-        $this->get('http://localhost/client/login?from=header')
-            ->assertRedirect('https://member.localhost/login?from=header');
     }
 
     public function test_old_portal_prefixes_on_each_subdomain_are_removed(): void
@@ -116,5 +111,14 @@ class PortalSubdomainRoutingTest extends TestCase
     public function test_old_public_cart_address_redirects_to_the_client_cart(): void
     {
         $this->get('http://localhost/keranjang')->assertStatus(301)->assertRedirect(route('cart.index'));
+    }
+
+    public function test_www_host_moves_to_the_main_domain_and_then_to_the_homepage(): void
+    {
+        $this->get('http://www.localhost/admin/login?a=1')
+            ->assertStatus(301)
+            ->assertRedirect('http://localhost/admin/login?a=1');
+
+        $this->get('http://localhost/admin/login')->assertRedirect(route('home'));
     }
 }
