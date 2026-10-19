@@ -69,8 +69,8 @@
     <div class="row g-3 mb-3">
       <div class="col-sm-6">
         <label class="form-label">Password</label>
-        <input name="password" type="password" required class="form-control">
-        <p class="text-muted mt-1 mb-0" style="font-size:11px">Min. 8 karakter, ada huruf & angka.</p>
+        <input id="password" name="password" type="password" required autocomplete="new-password" class="form-control">
+        @include('partials.password-rules', ['target' => 'password'])
       </div>
       <div class="col-sm-6">
         <label class="form-label">Ulangi Password</label>

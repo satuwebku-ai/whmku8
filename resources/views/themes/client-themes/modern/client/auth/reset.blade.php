@@ -22,7 +22,7 @@
       <label for="password" class="form-label">Password Baru</label>
       <input id="password" name="password" type="password" required autofocus minlength="8"
              autocomplete="new-password" placeholder="••••••••" class="form-control">
-      <div class="form-text" style="font-size:12px">Minimal 8 karakter, mengandung huruf dan angka.</div>
+      @include('partials.password-rules', ['target' => 'password'])
     </div>
 
     <div class="mb-3">

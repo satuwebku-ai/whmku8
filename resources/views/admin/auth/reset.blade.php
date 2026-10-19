@@ -50,7 +50,7 @@
           <label for="password" class="block text-xs font-semibold text-slate-600 mb-1.5">Password Baru</label>
           <input id="password" name="password" type="password" required autofocus placeholder="••••••••"
                  class="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all">
-          <p class="text-[11px] text-slate-400 mt-1">Minimal 8 karakter, mengandung huruf dan angka.</p>
+          @include('partials.password-rules', ['target' => 'password'])
         </div>
 
         <div>
