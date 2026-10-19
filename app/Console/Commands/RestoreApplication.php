@@ -111,6 +111,15 @@ class RestoreApplication extends Command
                 $this->warn('Jalankan manual: php artisan lumora:sync-migrations (sebelum php artisan migrate).');
             }
 
+            // Isi tabel settings/cache berubah lewat SQL mentah (tanpa event model), jadi
+            // cache pengaturan harus dibuang supaya situs langsung memakai data hasil restore.
+            try {
+                \App\Models\Setting::flushCache();
+                \Illuminate\Support\Facades\Cache::flush();
+            } catch (\Throwable $e) {
+                $this->warn('Cache tidak dapat dibersihkan otomatis: ' . $e->getMessage() . ' (jalankan: php artisan optimize:clear)');
+            }
+
             if (! $this->option('skip-files')) {
                 $storageAppBackup = "{$tempDir}/storage-app";
 

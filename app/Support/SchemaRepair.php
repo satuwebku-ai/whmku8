@@ -2,14 +2,18 @@
 
 namespace App\Support;
 
+use App\Services\Billing\InvoiceItemServiceBackfill;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 /**
  * Melengkapi skema database lama (mis. hasil restore backup) dengan kolom dan
  * tabel yang dulu ditambahkan migrasi `add_*` / `create_*` terpisah
- * (2026_10_01 ... 2026_10_07), sebelum semuanya dilebur ke migrasi tabel
+ * (2026_10_01 ... 2026_10_07, serta add_service_reference_to_invoice_items
+ * dan add_target_to_nav_menus), sebelum semuanya dilebur ke migrasi tabel
  * induknya.
  *
  * Mengapa perlu: migrasi induk (mis. create_clients_table) sudah tercatat
@@ -51,6 +55,7 @@ class SchemaRepair
         $repair->productTypes();
         $repair->mailTables();
         $repair->missingColumns();
+        $repair->invoiceItemServiceIndex();
         $repair->columnTypes();
         $repair->serverGroupPivot();
 
@@ -257,6 +262,27 @@ class SchemaRepair
             ]);
         }
 
+        // Rujukan layanan di baris invoice (dulu migrasi add_service_reference_to_invoice_items).
+        // Baris lama diisi otomatis seperti yang dulu dilakukan migrasinya.
+        $this->addColumns('invoice_items', [
+            'service_type' => fn (Blueprint $t) => $t->string('service_type', 20)->nullable(),
+            'service_id'   => fn (Blueprint $t) => $t->unsignedBigInteger('service_id')->nullable(),
+            'item_type'    => fn (Blueprint $t) => $t->string('item_type', 30)->nullable(),
+        ], [
+            'service_type' => function () {
+                try {
+                    app(InvoiceItemServiceBackfill::class)->run();
+                } catch (Throwable $e) {
+                    Log::warning('Backfill layanan invoice gagal saat perbaikan skema: '.$e->getMessage());
+                }
+            },
+        ]);
+
+        // Tujuan katalog pada menu navigasi (dulu migrasi add_target_to_nav_menus).
+        $this->addColumns('nav_menus', [
+            'target' => fn (Blueprint $t) => $t->string('target', 40)->nullable(),
+        ]);
+
         $this->addColumns('tickets', [
             'idle_prompted_at' => fn (Blueprint $t) => $t->timestamp('idle_prompted_at')->nullable(),
         ]);
@@ -293,6 +319,24 @@ class SchemaRepair
             'is_active'  => fn (Blueprint $t) => $t->boolean('is_active')->default(true),
             'use_for_ai' => fn (Blueprint $t) => $t->boolean('use_for_ai')->default(false),
         ]);
+    }
+
+    /** Index invoice_items(service_type, service_id); dipasang setelah kolomnya ada. */
+    private function invoiceItemServiceIndex(): void
+    {
+        if (! Schema::hasTable('invoice_items') || Schema::hasIndex('invoice_items', 'invoice_items_service_index')) {
+            return;
+        }
+
+        $this->note('tambah index invoice_items_service_index');
+
+        if ($this->dry) {
+            return;
+        }
+
+        Schema::table('invoice_items', function (Blueprint $table) {
+            $table->index(['service_type', 'service_id'], 'invoice_items_service_index');
+        });
     }
 
     /**

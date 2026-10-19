@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Support\SchemaRepair;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -86,5 +87,46 @@ class SchemaRepairTest extends TestCase
             ->expectsOutputToContain('servers.is_maintenance')
             ->assertSuccessful();
         $this->assertTrue(Schema::hasColumn('servers', 'is_maintenance'));
+    }
+
+    public function test_it_restores_the_columns_merged_from_the_invoice_items_and_nav_menus_migrations(): void
+    {
+        // Backup dari sebelum migrasi add_service_reference_to_invoice_items dan add_target_to_nav_menus.
+        Schema::table('invoice_items', fn ($t) => $t->dropIndex('invoice_items_service_index'));
+        Schema::table('invoice_items', fn ($t) => $t->dropColumn(['service_type', 'service_id', 'item_type']));
+        Schema::table('nav_menus', fn ($t) => $t->dropColumn('target'));
+
+        $planned = SchemaRepair::run(true);
+        $this->assertContains('tambah kolom invoice_items.service_type', $planned);
+        $this->assertContains('tambah kolom nav_menus.target', $planned);
+        $this->assertContains('tambah index invoice_items_service_index', $planned);
+
+        $this->assertSame($planned, SchemaRepair::run(false));
+
+        $this->assertTrue(Schema::hasColumns('invoice_items', ['service_type', 'service_id', 'item_type']));
+        $this->assertTrue(Schema::hasIndex('invoice_items', 'invoice_items_service_index'));
+        $this->assertTrue(Schema::hasColumn('nav_menus', 'target'));
+        $this->assertSame([], SchemaRepair::run(true));
+    }
+
+    public function test_sync_migrations_cleans_stale_history_rows_left_by_older_backups(): void
+    {
+        // Migrasi add_* yang sudah dilebur ke induknya: barisnya dibuang.
+        DB::table('migrations')->insert([
+            ['migration' => '2026_01_01_000075_add_service_reference_to_invoice_items_table', 'batch' => 1],
+            ['migration' => '2026_10_16_000001_add_target_to_nav_menus_table', 'batch' => 1],
+        ]);
+
+        // Migrasi induk yang pernah bernomor lain: barisnya diganti nama ke file sekarang.
+        DB::table('migrations')->where('migration', '2026_01_01_000026_create_invoice_items_table')->delete();
+        DB::table('migrations')->insert(['migration' => '2026_09_09_000001_create_invoice_items_table', 'batch' => 1]);
+
+        $this->artisan('lumora:sync-migrations')->assertSuccessful();
+
+        $names = DB::table('migrations')->pluck('migration')->all();
+        $this->assertNotContains('2026_01_01_000075_add_service_reference_to_invoice_items_table', $names);
+        $this->assertNotContains('2026_10_16_000001_add_target_to_nav_menus_table', $names);
+        $this->assertNotContains('2026_09_09_000001_create_invoice_items_table', $names);
+        $this->assertContains('2026_01_01_000026_create_invoice_items_table', $names);
     }
 }

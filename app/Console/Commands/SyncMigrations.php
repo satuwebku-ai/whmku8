@@ -42,7 +42,8 @@ class SyncMigrations extends Command
             return self::SUCCESS;
         }
 
-        $map = require database_path('migration-renames.php');
+        $mapFile = database_path('migration-renames.php');
+        $map = is_file($mapFile) ? (array) require $mapFile : [];
         $dry = (bool) $this->option('dry-run');
         $renamed = $removed = $skipped = 0;
 
@@ -72,6 +73,12 @@ class SyncMigrations extends Command
             }
         });
 
+        // Baris riwayat yang file-nya sudah tidak ada dan tidak tercantum di peta
+        // (mis. backup dari versi yang lebih lama).
+        [$matched, $stale] = $this->reconcileUnknownHistory($dry);
+        $renamed += $matched;
+        $removed += $stale;
+
         if ($this->option('drop-unused-tables')) {
             foreach (self::UNUSED_TABLES as $table) {
                 if (! Schema::hasTable($table)) {
@@ -99,6 +106,60 @@ class SyncMigrations extends Command
         $this->line('Sekarang jalankan: php artisan migrate');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Riwayat yang menunjuk file migrasi yang sudah tidak ada:
+     *  - ada tepat satu file bernama belakang sama (mis. create_invoice_items_table
+     *    dengan nomor urut lain) dan belum tercatat -> baris diganti namanya, supaya
+     *    `migrate` tidak mencoba membuat ulang tabel yang sudah ada;
+     *  - selain itu (migrasi add_* yang sudah dilebur ke induknya) -> baris dibuang.
+     *
+     * @return array{0: int, 1: int} [diganti nama, dibuang]
+     */
+    private function reconcileUnknownHistory(bool $dry): array
+    {
+        $files = collect(glob(database_path('migrations/*.php')) ?: [])
+            ->map(fn (string $file) => basename($file, '.php'))
+            ->values();
+
+        $byTail = $files->groupBy(fn (string $name) => $this->tail($name));
+        $known = $files->flip();
+        $renamed = $removed = 0;
+
+        $rows = DB::table('migrations')->get(['id', 'migration'])
+            ->reject(fn ($row) => $known->has($row->migration));
+
+        foreach ($rows as $row) {
+            $candidates = $byTail->get($this->tail($row->migration), collect());
+            $target = $candidates->count() === 1 ? $candidates->first() : null;
+
+            if ($target !== null && ! DB::table('migrations')->where('migration', $target)->exists()) {
+                $this->line("  ganti   {$row->migration}\n       ->  {$target}");
+                $renamed++;
+
+                if (! $dry) {
+                    DB::table('migrations')->where('id', $row->id)->update(['migration' => $target]);
+                }
+
+                continue;
+            }
+
+            $this->line("  hapus   {$row->migration} (file migrasinya sudah tidak ada)");
+            $removed++;
+
+            if (! $dry) {
+                DB::table('migrations')->where('id', $row->id)->delete();
+            }
+        }
+
+        return [$renamed, $removed];
+    }
+
+    /** Nama migrasi tanpa awalan tanggal + nomor urut (2026_01_01_000026_). */
+    private function tail(string $migration): string
+    {
+        return preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', $migration);
     }
 
     /** Lengkapi kolom/tabel yang hilang (database lama / hasil restore backup lama). */

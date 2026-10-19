@@ -145,6 +145,26 @@ class SelectiveDatabaseRestorer
             }
         } finally {
             DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+
+            $this->afterRestore($mode);
+        }
+    }
+
+    /**
+     * Tabel yang diisi lewat SQL mentah tidak memicu event model, jadi cache pengaturan
+     * dibuang. Mode "replace" juga membawa struktur tabel dari cadangan -- yang bisa
+     * lebih lama dari skema sekarang -- sehingga kolom yang kurang dilengkapi lagi.
+     */
+    private function afterRestore(string $mode): void
+    {
+        try {
+            \App\Models\Setting::flushCache();
+
+            if ($mode === self::MODE_REPLACE) {
+                \App\Support\SchemaRepair::run();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Pembersihan setelah restore sebagian gagal: ' . $e->getMessage());
         }
     }
 
